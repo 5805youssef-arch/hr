@@ -9,7 +9,7 @@ import os
 import plotly.express as px
 
 # ==========================================
-# 1. إعدادات النظام وقاموس العقوبات (Priority 1)
+# 1. إعدادات النظام وقاموس العقوبات 
 # ==========================================
 st.set_page_config(page_title="HR Disciplinary System", page_icon="⚖️", layout="wide")
 
@@ -27,17 +27,15 @@ HR_MANAGER_EMAIL = st.secrets.get("HR_MANAGER_EMAIL", SENDER_EMAIL)
 HR_ADMIN_PASSWORD = st.secrets.get("HR_ADMIN_PASSWORD", "1234")
 
 # ==========================================
-# 2. إعداد قاعدة البيانات (System Architecture)
+# 2. إعداد قاعدة البيانات 
 # ==========================================
 DB_FILE = "hr_system.db"
 
 def init_db():
     conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
-    # جدول الموظفين (بإضافة المدير والقسم)
     c.execute('''CREATE TABLE IF NOT EXISTS employees 
                  (id INTEGER PRIMARY KEY, name TEXT UNIQUE, email TEXT, department TEXT, manager_email TEXT)''')
-    # جدول المخالفات الشامل
     c.execute('''CREATE TABLE IF NOT EXISTS violations 
                  (id INTEGER PRIMARY KEY AUTOINCREMENT, employee_name TEXT, category TEXT, 
                  incident TEXT, penalty_color TEXT, penalty_label TEXT, deduction_hours REAL, 
@@ -52,7 +50,7 @@ def get_db_connection():
     return sqlite3.connect(DB_FILE, check_same_thread=False)
 
 # ==========================================
-# 3. دوال مساعدة (Email & Logic)
+# 3. دوال مساعدة (Email)
 # ==========================================
 def send_email(emp_email, manager_email, emp_name, category, incident, penalty_color, comment):
     if not SENDER_EMAIL or not SENDER_PASSWORD:
@@ -65,7 +63,6 @@ def send_email(emp_email, manager_email, emp_name, category, incident, penalty_c
     msg['From'] = SENDER_EMAIL
     msg['To'] = emp_email
     
-    # Priority 4: Investigation Workflow & Manager CC
     receivers = [emp_email]
     if manager_email:
         msg['Cc'] = manager_email
@@ -92,7 +89,7 @@ def send_email(emp_email, manager_email, emp_name, category, incident, penalty_c
         return False
 
 # ==========================================
-# 4. محاكاة مصفوفة العقوبات وتصحيح التواريخ (Priority 3)
+# 4. محاكاة مصفوفة العقوبات 
 # ==========================================
 CATEGORIES = ["الحضور والانصراف", "السلوك الشخصي", "إساءة الاستخدام", "سياسات العمل"]
 INCIDENTS = ["تأخير في الرد", "عدم عمل فولو اب", "الوصول متأخراً لمقر العمل", "الغياب بدون إذن"]
@@ -104,10 +101,28 @@ def validate_reset_days(raw_days):
             return days
     except:
         pass
-    return 30 # Default Fallback
+    return 30 
 
 # ==========================================
-# 5. واجهة المستخدم (UI & Tabs)
+# 5. نظام الحماية للتبويبات (المصحح)
+# ==========================================
+def check_password(tab_id):
+    if "authenticated" not in st.session_state:
+        st.session_state.authenticated = False
+    
+    if not st.session_state.authenticated:
+        pwd = st.text_input("🔑 أدخل كلمة مرور الـ HR للوصول لهذه الصفحة:", type="password", key=f"pwd_input_{tab_id}")
+        if st.button("تسجيل الدخول", key=f"login_btn_{tab_id}"):
+            if pwd == HR_ADMIN_PASSWORD:
+                st.session_state.authenticated = True
+                st.rerun()
+            else:
+                st.error("كلمة المرور غير صحيحة.")
+        return False
+    return True
+
+# ==========================================
+# 6. واجهة المستخدم (UI & Tabs)
 # ==========================================
 st.title("نظام إدارة إنذارات الموظفين 🟨⬛")
 
@@ -124,7 +139,6 @@ with tab1:
         with st.form("penalty_form"):
             st.subheader("إدخال تفاصيل المخالفة")
             
-            # Audit Trail Requirement
             submitted_by = st.text_input("اسم المدخل (HR Rep Name):", required=True)
             
             col1, col2 = st.columns(2)
@@ -152,14 +166,12 @@ with tab1:
                 if is_investigation:
                     final_color = "Investigation"
                 else:
-                    # حساب عدد المخالفات السابقة لنفس الخطأ في فترة السماح
                     c = conn.cursor()
                     c.execute('''SELECT COUNT(*) FROM violations 
                                  WHERE employee_name=? AND incident=? AND created_at >= ? AND penalty_color != 'Investigation' ''', 
                               (emp_name, incident, cutoff_date.strftime("%Y-%m-%d %H:%M:%S")))
                     penalty_count = c.fetchone()[0]
                     
-                    # سلم التصعيد حتى 8 مستويات
                     escalation_colors = ["Yellow", "Orange", "Red", "Black", "Black", "Black", "Black", "Black"]
                     if penalty_count >= 8:
                         st.error("⚠️ الموظف تجاوز الحد الأقصى للمخالفات (8 مرات). برجاء اتخاذ إجراء إداري علوي.")
@@ -167,7 +179,6 @@ with tab1:
                     else:
                         final_color = escalation_colors[penalty_count]
 
-                # حفظ في قاعدة البيانات
                 p_info = PENALTY_MAP[final_color]
                 c = conn.cursor()
                 c.execute('''INSERT INTO violations 
@@ -179,7 +190,6 @@ with tab1:
                            comment, submitted_by, current_date.strftime("%Y-%m-%d %H:%M:%S")))
                 conn.commit()
                 
-                # إرسال الإيميل
                 email_sent = send_email(emp_email, manager_email, emp_name, category, incident, final_color, comment)
                 
                 if email_sent:
@@ -188,25 +198,9 @@ with tab1:
                     st.warning(f"تم تسجيل العقوبة ({p_info['label']}) في السجل، لكن فشل إرسال الإيميل.")
     conn.close()
 
-# ---------------- نظام الحماية للتبويبات (Priority 2) ----------------
-def check_password():
-    if "authenticated" not in st.session_state:
-        st.session_state.authenticated = False
-    
-    if not st.session_state.authenticated:
-        pwd = st.text_input("🔑 أدخل كلمة مرور الـ HR للوصول لهذه الصفحة:", type="password", key="pwd_input")
-        if st.button("تسجيل الدخول"):
-            if pwd == HR_ADMIN_PASSWORD:
-                st.session_state.authenticated = True
-                st.rerun()
-            else:
-                st.error("كلمة المرور غير صحيحة.")
-        return False
-    return True
-
 # ---------------- Tab 2: لوحة الإدارة ----------------
 with tab2:
-    if check_password():
+    if check_password("tab2"):
         conn = get_db_connection()
         st.subheader("👥 إدارة الموظفين")
         
@@ -236,13 +230,13 @@ with tab2:
                 st.rerun()
         conn.close()
         
-        if st.button("تسجيل الخروج"):
+        if st.button("تسجيل الخروج", key="logout_tab2"):
             st.session_state.authenticated = False
             st.rerun()
 
-# ---------------- Tab 3: التقارير والإحصائيات (Priority 5) ----------------
+# ---------------- Tab 3: التقارير والإحصائيات ----------------
 with tab3:
-    if check_password():
+    if check_password("tab3"):
         conn = get_db_connection()
         st.header("📊 لوحة تحكم التقارير")
         
@@ -268,7 +262,6 @@ with tab3:
             st.write("---")
             st.subheader("⚠️ سجل الخصومات وتجميد الترقيات (للتصدير لشؤون العاملين)")
             
-            # حساب التجميد النشط (Freeze Active)
             violations_df['created_at'] = pd.to_datetime(violations_df['created_at'])
             violations_df['freeze_end_date'] = violations_df.apply(
                 lambda row: (row['created_at'] + pd.DateOffset(months=int(row['freeze_months']))) if row['freeze_months'] > 0 else None, axis=1
@@ -280,8 +273,11 @@ with tab3:
             export_df = violations_df[['employee_name', 'incident', 'penalty_label', 'deduction_days', 'deduction_hours', 'freeze_end_date', 'is_frozen', 'created_at']]
             st.dataframe(export_df, use_container_width=True)
             
-            # زرار التحميل كـ Excel
             csv = export_df.to_csv(index=False).encode('utf-8-sig')
             st.download_button(label="📥 تصدير التقرير المالي كـ CSV", data=csv, file_name="payroll_deductions_report.csv", mime="text/csv")
+            
+        if st.button("تسجيل الخروج", key="logout_tab3"):
+            st.session_state.authenticated = False
+            st.rerun()
             
         conn.close()
