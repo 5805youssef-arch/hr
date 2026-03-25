@@ -104,7 +104,7 @@ def validate_reset_days(raw_days):
     return 30 
 
 # ==========================================
-# 5. نظام الحماية للتبويبات (المصحح)
+# 5. نظام الحماية للتبويبات
 # ==========================================
 def check_password(tab_id):
     if "authenticated" not in st.session_state:
@@ -139,7 +139,8 @@ with tab1:
         with st.form("penalty_form"):
             st.subheader("إدخال تفاصيل المخالفة")
             
-            submitted_by = st.text_input("اسم المدخل (HR Rep Name):", required=True)
+            # تم إزالة required=True من هنا
+            submitted_by = st.text_input("اسم المدخل (HR Rep Name):")
             
             col1, col2 = st.columns(2)
             with col1:
@@ -154,48 +155,51 @@ with tab1:
             
             submitted = st.form_submit_button("إرسال الإشعار وتسجيل العقوبة")
 
-            if submitted and submitted_by:
-                emp_data = employees_df[employees_df['name'] == emp_name].iloc[0]
-                emp_email = emp_data['email']
-                manager_email = emp_data['manager_email']
-                current_date = datetime.now()
-                
-                reset_days = validate_reset_days(reset_days_input)
-                cutoff_date = current_date - timedelta(days=reset_days)
-                
-                if is_investigation:
-                    final_color = "Investigation"
+            if submitted:
+                if not submitted_by:
+                    st.error("⚠️ برجاء كتابة اسم المدخل (HR Rep Name) قبل الإرسال.")
                 else:
-                    c = conn.cursor()
-                    c.execute('''SELECT COUNT(*) FROM violations 
-                                 WHERE employee_name=? AND incident=? AND created_at >= ? AND penalty_color != 'Investigation' ''', 
-                              (emp_name, incident, cutoff_date.strftime("%Y-%m-%d %H:%M:%S")))
-                    penalty_count = c.fetchone()[0]
+                    emp_data = employees_df[employees_df['name'] == emp_name].iloc[0]
+                    emp_email = emp_data['email']
+                    manager_email = emp_data['manager_email']
+                    current_date = datetime.now()
                     
-                    escalation_colors = ["Yellow", "Orange", "Red", "Black", "Black", "Black", "Black", "Black"]
-                    if penalty_count >= 8:
-                        st.error("⚠️ الموظف تجاوز الحد الأقصى للمخالفات (8 مرات). برجاء اتخاذ إجراء إداري علوي.")
-                        st.stop()
+                    reset_days = validate_reset_days(reset_days_input)
+                    cutoff_date = current_date - timedelta(days=reset_days)
+                    
+                    if is_investigation:
+                        final_color = "Investigation"
                     else:
-                        final_color = escalation_colors[penalty_count]
+                        c = conn.cursor()
+                        c.execute('''SELECT COUNT(*) FROM violations 
+                                     WHERE employee_name=? AND incident=? AND created_at >= ? AND penalty_color != 'Investigation' ''', 
+                                  (emp_name, incident, cutoff_date.strftime("%Y-%m-%d %H:%M:%S")))
+                        penalty_count = c.fetchone()[0]
+                        
+                        escalation_colors = ["Yellow", "Orange", "Red", "Black", "Black", "Black", "Black", "Black"]
+                        if penalty_count >= 8:
+                            st.error("⚠️ الموظف تجاوز الحد الأقصى للمخالفات (8 مرات). برجاء اتخاذ إجراء إداري علوي.")
+                            st.stop()
+                        else:
+                            final_color = escalation_colors[penalty_count]
 
-                p_info = PENALTY_MAP[final_color]
-                c = conn.cursor()
-                c.execute('''INSERT INTO violations 
-                             (employee_name, category, incident, penalty_color, penalty_label, 
-                             deduction_hours, deduction_days, freeze_months, comment, submitted_by, created_at) 
-                             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
-                          (emp_name, category, incident, final_color, p_info['label'], 
-                           p_info['deduction_hours'], p_info['deduction_days'], p_info['freeze_months'], 
-                           comment, submitted_by, current_date.strftime("%Y-%m-%d %H:%M:%S")))
-                conn.commit()
-                
-                email_sent = send_email(emp_email, manager_email, emp_name, category, incident, final_color, comment)
-                
-                if email_sent:
-                    st.success(f"✅ تم تسجيل العقوبة ({p_info['label']}) بنجاح وإرسال الإشعارات.")
-                else:
-                    st.warning(f"تم تسجيل العقوبة ({p_info['label']}) في السجل، لكن فشل إرسال الإيميل.")
+                    p_info = PENALTY_MAP[final_color]
+                    c = conn.cursor()
+                    c.execute('''INSERT INTO violations 
+                                 (employee_name, category, incident, penalty_color, penalty_label, 
+                                 deduction_hours, deduction_days, freeze_months, comment, submitted_by, created_at) 
+                                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+                              (emp_name, category, incident, final_color, p_info['label'], 
+                               p_info['deduction_hours'], p_info['deduction_days'], p_info['freeze_months'], 
+                               comment, submitted_by, current_date.strftime("%Y-%m-%d %H:%M:%S")))
+                    conn.commit()
+                    
+                    email_sent = send_email(emp_email, manager_email, emp_name, category, incident, final_color, comment)
+                    
+                    if email_sent:
+                        st.success(f"✅ تم تسجيل العقوبة ({p_info['label']}) بنجاح وإرسال الإشعارات.")
+                    else:
+                        st.warning(f"تم تسجيل العقوبة ({p_info['label']}) في السجل، لكن فشل إرسال الإيميل.")
     conn.close()
 
 # ---------------- Tab 2: لوحة الإدارة ----------------
