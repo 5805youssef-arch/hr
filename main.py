@@ -27,7 +27,7 @@ HR_MANAGER_EMAIL = st.secrets.get("HR_MANAGER_EMAIL", SENDER_EMAIL)
 HR_ADMIN_PASSWORD = st.secrets.get("HR_ADMIN_PASSWORD", "1234")
 
 # ==========================================
-# 2. مصفوفة الأخطاء الكاملة (The Exact Excel Matrix) - الجزء اللي كان ناقص عندك
+# 2. مصفوفة الأخطاء الكاملة (The Exact Excel Matrix)
 # ==========================================
 MATRIX_DATA = {
     "Attendance & adherance": {
@@ -178,22 +178,24 @@ with tab1:
     if employees_df.empty:
         st.warning("Please add employees from the Admin Dashboard first.")
     else:
+        st.subheader("Violation Details")
+        
+        # 1. القوائم الديناميكية (خارج الـ Form عشان تتحدث فوراً بمجرد التغيير)
+        col1, col2 = st.columns(2)
+        with col1:
+            category = st.selectbox("Category", list(MATRIX_DATA.keys()))
+        with col2:
+            incident = st.selectbox("Incident", list(MATRIX_DATA[category].keys()))
+        
+        reset_days = MATRIX_DATA[category][incident]["reset"]
+        st.info(f"ℹ️ Reset Period for this incident is: **{reset_days} Days**")
+        
+        # 2. باقي البيانات (جوه الـ Form عشان متتبعتش غير لما تدوس Submit)
         with st.form("penalty_form"):
-            st.subheader("Violation Details")
-            
             submitted_by = st.text_input("اسم المدخل (HR Rep Name):")
             emp_name = st.selectbox("Select Employee", employees_df['name'].tolist())
-            
-            col1, col2 = st.columns(2)
-            with col1:
-                category = st.selectbox("Category", list(MATRIX_DATA.keys()))
-            with col2:
-                incident = st.selectbox("Incident", list(MATRIX_DATA[category].keys()))
-            
-            reset_days = MATRIX_DATA[category][incident]["reset"]
-            st.info(f"ℹ️ Reset Period for this incident is: **{reset_days} Days**")
-            
             comment = st.text_area("HR Comments / Alignment details")
+            
             submitted = st.form_submit_button("Submit & Notify")
 
             if submitted:
