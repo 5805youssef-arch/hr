@@ -1,5 +1,5 @@
 # =============================================================
-# HR Disciplinary Management System — Clean Production v3.0
+# HR Disciplinary Management System — Clean Production v3.5
 # =============================================================
 # Single-file Streamlit app. SQLite only. No Google Sheets.
 # Phases covered:
@@ -9,6 +9,8 @@
 #   4 – Core features verified
 #   5 – Audit trail (submitted_by column)
 #   6 – Final clean version
+#   7 – ADDED: i18n Bilingual Support (English/Arabic) Toggle
+#   8 – ADDED: Manager Overrides (Force Investigation & Custom Deduction)
 # =============================================================
 
 import re
@@ -33,6 +35,172 @@ st.set_page_config(
     layout="wide",
 )
 
+# ─────────────────────────────────────────────────────────────
+# I18N TRANSLATION DICTIONARY & HELPERS (NEW ADDITION)
+# ─────────────────────────────────────────────────────────────
+if "lang" not in st.session_state:
+    st.session_state.lang = "en"
+
+ARABIC_DICT = {
+    # General UI
+    "HR Disciplinary System": "نظام إدارة الإنذارات الإدارية",
+    "HR Disciplinary Management System": "نظام إدارة الإنذارات والمخالفات",
+    "📝 Log Violation": "📝 تسجيل مخالفة",
+    "⚙️ Admin Dashboard": "⚙️ لوحة الإدارة",
+    "📊 Reports & Analytics": "📊 التقارير والإحصائيات",
+    "Password": "كلمة المرور",
+    "Login": "تسجيل الدخول",
+    "Logout": "تسجيل الخروج",
+    "❌ Incorrect password.": "❌ كلمة المرور غير صحيحة.",
+    "### 🔑 HR Access Required": "### 🔑 مطلوب صلاحيات الموارد البشرية",
+    
+    # Tab 1: Log Violation
+    "⚠️ No employees found. Please add employees in the **Admin Dashboard** tab first.": "⚠️ لم يتم العثور على موظفين. برجاء إضافة موظفين من لوحة الإدارة أولاً.",
+    "Register New Violation": "تسجيل مخالفة جديدة",
+    "Violation Category": "تصنيف المخالفة",
+    "Incident Type": "نوع الخطأ",
+    "ℹ️ Incident Reference": "ℹ️ مرجع الخطأ",
+    "**Details:**": "**التفاصيل:**",
+    "**Reset Window:**": "**فترة السماح:**",
+    "days": "أيام",
+    "**Max Steps:**": "**الحد الأقصى:**",
+    "📌 **HR Note:**": "📌 **ملاحظة HR:**",
+    "**Escalation path:**": "**مسار التصعيد:**",
+    "Employee *": "الموظف *",
+    "HR Representative Name *": "اسم ممثل الـ HR (المدخل) *",
+    "HR Comments / Alignment Notes": "ملاحظات الإدارة / تفاصيل الموقف",
+    "✅ Submit & Notify": "✅ إرسال الإشعار وتسجيل العقوبة",
+    "⚠️ **HR Representative Name** is required. This field is the system's audit trail.": "⚠️ **اسم ممثل الـ HR** مطلوب (مهم لسجل التدقيق).",
+    "🚨 **INVESTIGATION TRIGGERED** \nThe employee must be suspended immediately. Escalate to the HR Director and do **not** allow the employee on-site.": "🚨 **تم تفعيل التحقيق** \nيجب إيقاف الموظف فوراً وإبلاغ مدير الموارد البشرية، وعدم السماح له بالتواجد في مقر العمل.",
+    "💰 **Payroll:**": "💰 **الرواتب:**",
+    "day(s) deduction": "يوم خصم",
+    "must be applied.": "يجب أن تُطبق.",
+    "🔒 **Promotion freeze** active until **": "🔒 **تجميد ترقية** نشط حتى **",
+    "months).": "شهور).",
+    
+    # OVERRIDES (NEW)
+    "🚨 Force Direct Investigation (Bypass Escalation)": "🚨 تحويل مباشر للتحقيق (تخطي السلم)",
+    "Deduction Days Override (Optional)": "تعديل أيام الخصم يدوياً (اختياري)",
+    "Leave as -1.0 to use default system calculation.": "اتركه على -1.0 لتطبيق الخصم الافتراضي للنظام.",
+
+    # Tab 2: Admin
+    "👥 Employee Management": "👥 إدارة الموظفين",
+    "Full Name *": "الاسم الكامل *",
+    "Email Address *": "البريد الإلكتروني *",
+    "Department": "القسم",
+    "Manager Email (CC on penalties)": "إيميل المدير المباشر (لإرسال CC)",
+    "💾 Save Employee": "💾 حفظ بيانات الموظف",
+    "⚠️ Name and Email are required.": "⚠️ الاسم والبريد الإلكتروني مطلوبان.",
+    "✅ Employee": "✅ الموظف",
+    "saved.": "تم حفظه.",
+    "Select employee to remove:": "اختر الموظف لإزالته:",
+    "— select —": "— اختر —",
+    "🗑️ Delete Employee": "🗑️ حذف الموظف",
+    "removed.": "تمت إزالته.",
+    "No employees yet. Use the form above to add one.": "لا يوجد موظفين بعد. استخدم النموذج أعلاه للإضافة.",
+    "🗂️ Violation Records": "🗂️ سجلات المخالفات",
+    "Select Record ID to delete:": "اختر رقم السجل للحذف:",
+    "🗑️ Delete Violation Record": "🗑️ حذف السجل نهائياً",
+    "Record": "سجل",
+    "deleted.": "تم حذفه.",
+    "No violations logged yet.": "لم يتم تسجيل أي مخالفات بعد.",
+
+    # Tab 3: Reports
+    "📊 HR Reports & Analytics": "📊 تقارير وإحصائيات الموارد البشرية",
+    "🔍 Filters": "🔍 الفلاتر والبحث",
+    "Employee Name": "اسم الموظف",
+    "From": "من تاريخ",
+    "To": "إلى تاريخ",
+    "Penalty Level": "مستوى العقوبة",
+    "All": "الكل",
+    "⚠️ 'From' date must be before or equal to 'To' date.": "⚠️ تاريخ 'من' يجب أن يكون قبل أو يساوي تاريخ 'إلى'.",
+    "ℹ️ No violations match the selected filters.": "ℹ️ لا توجد مخالفات تطابق الفلاتر المحددة.",
+    "Total Violations": "إجمالي المخالفات",
+    "Unique Employees": "الموظفين المخالفين",
+    "Total Deduction Days": "إجمالي أيام الخصم",
+    "Active Promotion Freezes": "حالات التجميد النشطة",
+    "Violations by Category": "المخالفات حسب التصنيف",
+    "Violations per Employee": "المخالفات لكل موظف",
+    "📅 Violations Over Time": "📅 معدل المخالفات الزمني",
+    "Daily Violation Count": "عدد المخالفات اليومي",
+    "Date": "التاريخ",
+    "Violations": "المخالفات",
+    "Violations by Penalty Level": "حسب مستوى العقوبة",
+    "Top 10 Incidents": "أكثر 10 أخطاء شيوعاً",
+    "📋 Violation History — Full Detail": "📋 السجل الكامل للمخالفات",
+    "Employee": "الموظف",
+    "Category": "التصنيف",
+    "Incident": "الخطأ",
+    "Penalty": "العقوبة",
+    "Penalty Description": "وصف العقوبة",
+    "Deduction (hrs)": "خصم (ساعات)",
+    "Deduction (days)": "خصم (أيام)",
+    "Freeze Until": "مجمد حتى",
+    "Currently Frozen": "حالة التجميد",
+    "Submitted By": "أُدخلت بواسطة (HR)",
+    "Date & Time": "التاريخ والوقت",
+    "💰 Payroll Deduction Summary": "💰 ملخص خصومات الرواتب",
+    "Count": "العدد",
+    "Active Freeze": "تجميد نشط",
+    "📥 Export Filtered Report (CSV)": "📥 تصدير التقرير (CSV)",
+    "Yes": "نعم",
+    "No": "لا",
+
+    # Categories & Incidents
+    "Attendance & Adherence": "الحضور والالتزام",
+    "Personal Attitude": "السلوك الشخصي",
+    "Abusing": "إساءة الاستخدام",
+    "Policy Violations": "مخالفة السياسات",
+    "Late Arrival": "التأخير عن موعد العمل",
+    "No-Show": "الغياب بدون إذن",
+    "Exceed Breaks": "تجاوز وقت الراحة المسموح",
+    "Unscheduled Breaks": "أخذ راحات غير مجدولة",
+    "Out-of-Hours Attendance": "البقاء في العمل خارج المواعيد",
+    "Attendance Manipulation": "التلاعب في بصمة الحضور",
+    "Early Leave": "الانصراف المبكر",
+    "Use of Abusive Words": "استخدام ألفاظ مسيئة",
+    "Physical Harm": "الإيذاء البدني",
+    "Sleeping on the Job": "النوم أثناء العمل",
+    "Unprofessional Behaviour": "سلوك غير مهني",
+    "Company Assets": "إساءة استخدام ممتلكات الشركة",
+    "Routing Calls / Tickets": "توجيه خاطئ للعمل/التذاكر",
+    "Releasing Calls / Tickets": "إغلاق العمل بدون إنجاز",
+    "Using Colleague Logins": "استخدام حساب زميل",
+    "Aux System Abuse": "إساءة استخدام أنظمة العمل",
+    "Refusing Medical Examination": "رفض الكشف الطبي",
+    "Unauthorised Visitors": "استقبال زوار بدون إذن",
+    "Smoking in Prohibited Areas": "التدخين في أماكن ممنوعة",
+    "Alcohol / Drug Influence": "تحت تأثير الكحول/المخدرات",
+    "Harassment": "التحرش أو المضايقة",
+    "Theft": "السرقة",
+    "Social Media Misuse": "إساءة استخدام السوشيال ميديا",
+    "Data Confidentiality Breach": "اختراق سرية البيانات",
+    "Personal Mobile Phone Use": "استخدام الهاتف الشخصي بالعمل",
+    "Food & Beverage in Prohibited Areas": "الأكل/الشرب في أماكن ممنوعة",
+    "Business Process Failure": "مخالفة إجراءات العمل",
+    "End-User Critical Failure": "خطأ فادح مع العميل",
+    "Cyber Security Breach": "اختراق أمن المعلومات",
+
+    # Penalty Levels
+    "Yellow": "أصفر",
+    "Orange": "برتقالي",
+    "Red": "أحمر",
+    "Black": "أسود",
+    "Investigation": "تحقيق",
+}
+
+def _t(text: str) -> str:
+    """Return the translated string if Arabic is selected, else original."""
+    if st.session_state.lang == "en":
+        return text
+    return ARABIC_DICT.get(text, text)
+
+# Language Toggle UI
+col_blank, col_lang = st.columns([9, 1])
+with col_lang:
+    if st.button("🌐 عربي/EN", use_container_width=True):
+        st.session_state.lang = "ar" if st.session_state.lang == "en" else "en"
+        st.rerun()
 
 # =============================================================
 # SECTION 1 — CONSTANTS & CONFIGURATION
@@ -284,11 +452,6 @@ def init_db() -> None:
     """
     Create tables and run lightweight schema migrations.
     Safe to call on every app startup — all operations are idempotent.
-
-    Migrations handled:
-      • Add submitted_by column if upgrading from an older schema.
-      • Recreate violations table if deduction_days was stored as INTEGER
-        (needed to support the 0.5 value for Orange penalties).
     """
     with _db() as conn:
         # ── Create tables ────────────────────────────────
@@ -405,6 +568,7 @@ def insert_violation(
     penalty_color: str,
     comment: str,
     submitted_by: str,
+    override_days: float = None  # ADDED PARAMETER FOR OVERRIDE
 ) -> None:
     """
     Persist a new violation.
@@ -412,6 +576,9 @@ def insert_violation(
     never from the UI — prevents data inconsistency.
     """
     p = PENALTY_MAP[penalty_color]
+    # ADDED LOGIC to apply override if provided
+    applied_deduction = override_days if override_days is not None and override_days >= 0 else p["deduction_days"]
+    
     with _db() as conn:
         conn.execute(
             """INSERT INTO violations
@@ -422,7 +589,7 @@ def insert_violation(
             (
                 emp_name, category, incident,
                 penalty_color, p["label"],
-                p["deduction_hours"], p["deduction_days"], p["freeze_months"],
+                p["deduction_hours"], applied_deduction, p["freeze_months"],
                 comment, submitted_by,
                 datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             ),
@@ -647,24 +814,24 @@ def require_auth(page_key: str) -> bool:
     if st.session_state.get(state_key):
         return True
 
-    st.markdown("### 🔑 HR Access Required")
+    st.markdown(_t("### 🔑 HR Access Required"))
     with st.form(f"login_{page_key}"):
-        pwd    = st.text_input("Password", type="password")
-        submit = st.form_submit_button("Login")
+        pwd    = st.text_input(_t("Password"), type="password")
+        submit = st.form_submit_button(_t("Login"))
 
     if submit:
         if pwd == HR_ADMIN_PASSWORD:
             st.session_state[state_key] = True
             st.rerun()
         else:
-            st.error("❌ Incorrect password.")
+            st.error(_t("❌ Incorrect password."))
 
     return False
 
 
 def _logout_button(page_key: str) -> None:
     _, btn_col = st.columns([9, 1])
-    if btn_col.button("Logout", key=f"logout_{page_key}"):
+    if btn_col.button(_t("Logout"), key=f"logout_{page_key}"):
         st.session_state[f"auth_{page_key}"] = False
         st.rerun()
 
@@ -695,10 +862,10 @@ def _kpi_row(df: pd.DataFrame) -> None:
     )
 
     k1, k2, k3, k4 = st.columns(4)
-    k1.metric("Total Violations",       len(df))
-    k2.metric("Unique Employees",        df["employee_name"].nunique())
-    k3.metric("Total Deduction Days",    f"{df['deduction_days'].sum():.1f}")
-    k4.metric("Active Promotion Freezes", int(active_freezes))
+    k1.metric(_t("Total Violations"),       len(df))
+    k2.metric(_t("Unique Employees"),        df["employee_name"].nunique())
+    k3.metric(_t("Total Deduction Days"),    f"{df['deduction_days'].sum():.1f}")
+    k4.metric(_t("Active Promotion Freezes"), int(active_freezes))
 
 
 # =============================================================
@@ -707,12 +874,12 @@ def _kpi_row(df: pd.DataFrame) -> None:
 
 init_db()
 
-st.title("⚖️ HR Disciplinary Management System")
+st.title(_t("HR Disciplinary Management System"))
 
 tab_log, tab_admin, tab_reports = st.tabs([
-    "📝 Log Violation",
-    "⚙️ Admin Dashboard",
-    "📊 Reports & Analytics",
+    _t("📝 Log Violation"),
+    _t("⚙️ Admin Dashboard"),
+    _t("📊 Reports & Analytics"),
 ])
 
 
@@ -723,26 +890,25 @@ with tab_log:
     employees_df = get_employees()
 
     if employees_df.empty:
-        st.warning(
-            "⚠️ No employees found. "
-            "Please add employees in the **Admin Dashboard** tab first."
-        )
+        st.warning(_t("⚠️ No employees found. Please add employees in the **Admin Dashboard** tab first."))
     else:
-        st.subheader("Register New Violation")
+        st.subheader(_t("Register New Violation"))
 
         # Dynamic dropdowns — OUTSIDE the form so the incident list
         # refreshes immediately when the category changes.
         col_cat, col_inc = st.columns(2)
         with col_cat:
             category = st.selectbox(
-                "Violation Category",
+                _t("Violation Category"),
                 list(MATRIX_DATA.keys()),
+                format_func=lambda x: _t(x),
                 key="t1_cat",
             )
         with col_inc:
             incident = st.selectbox(
-                "Incident Type",
+                _t("Incident Type"),
                 list(MATRIX_DATA[category].keys()),
+                format_func=lambda x: _t(x),
                 key="t1_inc",
             )
 
@@ -752,55 +918,71 @@ with tab_log:
         details    = inc_meta.get("details", "")
         hr_note    = inc_meta.get("hr_note", "")
 
-        with st.expander("ℹ️ Incident Reference", expanded=True):
+        with st.expander(_t("ℹ️ Incident Reference"), expanded=True):
             d1, d2 = st.columns(2)
-            d1.info(f"**Details:** {details}")
+            d1.info(f"{_t('**Details:**')} {_t(details)}")
             d2.info(
-                f"**Reset Window:** {reset_days} days  "
-                f"|  **Max Steps:** {len(escalation)}"
+                f"{_t('**Reset Window:**')} {reset_days} {_t('days')}  "
+                f"|  {_t('**Max Steps:**')} {len(escalation)}"
             )
             if hr_note:
-                st.warning(f"📌 **HR Note:** {hr_note}")
+                st.warning(f"{_t('📌 **HR Note:**')} {_t(hr_note)}")
             path_str = "  →  ".join(
-                f"{PENALTY_MAP[p]['badge']} {p}" for p in escalation
+                f"{PENALTY_MAP[p]['badge']} {_t(p)}" for p in escalation
             )
-            st.write(f"**Escalation path:** {path_str}")
+            st.write(f"{_t('**Escalation path:**')} {path_str}")
 
         # Stable form fields — only submitted when the button is clicked.
         with st.form("violation_form", clear_on_submit=True):
             f1, f2 = st.columns(2)
             with f1:
                 emp_name = st.selectbox(
-                    "Employee *", employees_df["name"].tolist()
+                    _t("Employee *"), employees_df["name"].tolist()
                 )
                 submitted_by = st.text_input(
-                    "HR Representative Name *",
+                    _t("HR Representative Name *"),
                     help="Name of the HR staff member logging this violation. "
                          "Stored as the Audit Trail entry.",
                 )
+                
+                st.markdown("---")
+                # NEW ADDITIONS: MANAGER OVERRIDES
+                force_investigation = st.checkbox(_t("🚨 Force Direct Investigation (Bypass Escalation)"))
+                custom_deduction = st.number_input(
+                    _t("Deduction Days Override (Optional)"), 
+                    value=-1.0, step=0.5, 
+                    help=_t("Leave as -1.0 to use default system calculation.")
+                )
+
             with f2:
                 comment = st.text_area(
-                    "HR Comments / Alignment Notes",
+                    _t("HR Comments / Alignment Notes"),
                     height=130,
                     help="Include contextual notes, manager alignment details, "
                          "or any mitigating factors.",
                 )
 
             do_submit = st.form_submit_button(
-                "✅ Submit & Notify", use_container_width=True
+                _t("✅ Submit & Notify"), use_container_width=True
             )
 
         if do_submit:
             if not submitted_by.strip():
-                st.error(
-                    "⚠️ **HR Representative Name** is required. "
-                    "This field is the system's audit trail."
-                )
+                st.error(_t("⚠️ **HR Representative Name** is required. This field is the system's audit trail."))
             else:
-                penalty_color = calculate_next_penalty(
-                    emp_name, category, incident
-                )
+                # 1. Calculate Default Penalty
+                penalty_color = calculate_next_penalty(emp_name, category, incident)
+                
+                # 2. Apply Investigation Override if checked
+                if force_investigation:
+                    penalty_color = "Investigation"
+                
                 p_info  = PENALTY_MAP[penalty_color]
+                
+                # 3. Apply Days Override if provided
+                actual_override = custom_deduction if custom_deduction >= 0.0 else None
+                applied_days = actual_override if actual_override is not None else p_info["deduction_days"]
+
                 emp_row = employees_df[
                     employees_df["name"] == emp_name
                 ].iloc[0]
@@ -809,6 +991,7 @@ with tab_log:
                 insert_violation(
                     emp_name, category, incident,
                     penalty_color, comment, submitted_by.strip(),
+                    override_days=actual_override # PASSING OVERRIDE VALUE TO DB
                 )
 
                 # Send notifications
@@ -823,41 +1006,30 @@ with tab_log:
                 badge = p_info["badge"]
                 if email_ok:
                     st.success(
-                        f"{badge} Penalty recorded: **{p_info['label']}** "
+                        f"{badge} Penalty recorded: **{_t(p_info['label'])}** "
                         f"— Notifications sent."
                     )
                 else:
                     st.warning(
-                        f"{badge} Penalty recorded: **{p_info['label']}** "
+                        f"{badge} Penalty recorded: **{_t(p_info['label'])}** "
                         f"— Email skipped: {email_msg}"
                     )
 
                 if penalty_color == "Investigation":
-                    st.error(
-                        "🚨 **INVESTIGATION TRIGGERED**  \n"
-                        "The employee must be suspended immediately. "
-                        "Escalate to the HR Director and do **not** allow "
-                        "the employee on-site."
-                    )
-                elif p_info["deduction_days"] > 0:
+                    st.error(_t("🚨 **INVESTIGATION TRIGGERED** \nThe employee must be suspended immediately. Escalate to the HR Director and do **not** allow the employee on-site."))
+                elif applied_days > 0:
                     hrs = (
                         f" ({p_info['deduction_hours']} hrs)"
                         if p_info["deduction_hours"] > 0 else ""
                     )
-                    st.info(
-                        f"💰 **Payroll:** {p_info['deduction_days']} day(s)"
-                        f" deduction{hrs} must be applied."
-                    )
+                    st.info(f"{_t('💰 **Payroll:**')} {applied_days} {_t('day(s) deduction')} {hrs} {_t('must be applied.')}")
 
                 if p_info["freeze_months"] > 0:
                     until = (
                         datetime.now()
                         + timedelta(days=30 * p_info["freeze_months"])
                     ).strftime("%d %b %Y")
-                    st.warning(
-                        f"🔒 **Promotion freeze** active until **{until}** "
-                        f"({p_info['freeze_months']} months)."
-                    )
+                    st.warning(f"{_t('🔒 **Promotion freeze** active until **')}{until}** ({p_info['freeze_months']} {_t('months).')}")
 
 
 # =============================================================
@@ -868,19 +1040,19 @@ with tab_admin:
         pass   # Login form already rendered by require_auth
     else:
         _logout_button("tab2")
-        st.subheader("👥 Employee Management")
+        st.subheader(_t("👥 Employee Management"))
 
         # ── Add / Update Employee ─────────────────────────
         with st.form("add_emp_form", clear_on_submit=True):
             a1, a2 = st.columns(2)
             with a1:
-                e_name  = st.text_input("Full Name *")
-                e_email = st.text_input("Email Address *")
+                e_name  = st.text_input(_t("Full Name *"))
+                e_email = st.text_input(_t("Email Address *"))
             with a2:
-                e_dept    = st.text_input("Department")
-                e_manager = st.text_input("Manager Email (CC on penalties)")
+                e_dept    = st.text_input(_t("Department"))
+                e_manager = st.text_input(_t("Manager Email (CC on penalties)"))
 
-            if st.form_submit_button("💾 Save Employee"):
+            if st.form_submit_button(_t("💾 Save Employee")):
                 errors: list[str] = []
                 if not e_name.strip():
                     errors.append("Employee name is required.")
@@ -899,55 +1071,64 @@ with tab_admin:
                         e_name.strip(), e_email.strip(),
                         e_dept.strip(), e_manager.strip(),
                     )
-                    st.success(f"✅ Employee **{e_name.strip()}** saved.")
+                    st.success(f"{_t('✅ Employee')} **{e_name.strip()}** {_t('saved.')}")
                     st.rerun()
 
         # ── Employee List ─────────────────────────────────
         emp_df = get_employees()
         if not emp_df.empty:
-            st.dataframe(
-                emp_df[["name", "email", "department", "manager_email"]],
-                use_container_width=True,
-            )
+            # Translated Headers for Display
+            disp_emp = emp_df[["name", "email", "department", "manager_email"]].rename(columns={
+                "name": _t("Full Name *"), "email": _t("Email Address *"), 
+                "department": _t("Department"), "manager_email": _t("Manager Email (CC on penalties)")
+            })
+            st.dataframe(disp_emp, use_container_width=True)
+            
             del_name = st.selectbox(
-                "Select employee to remove:",
-                ["— select —"] + emp_df["name"].tolist(),
+                _t("Select employee to remove:"),
+                [_t("— select —")] + emp_df["name"].tolist(),
                 key="del_emp_sel",
             )
-            if del_name != "— select —":
-                if st.button("🗑️ Delete Employee", key="del_emp_btn"):
+            if del_name != _t("— select —"):
+                if st.button(_t("🗑️ Delete Employee"), key="del_emp_btn"):
                     delete_employee(del_name)
-                    st.success(f"Employee **{del_name}** removed.")
+                    st.success(f"Employee **{del_name}** {_t('removed.')}")
                     st.rerun()
         else:
-            st.info("No employees yet. Use the form above to add one.")
+            st.info(_t("No employees yet. Use the form above to add one."))
 
         st.divider()
 
         # ── Violation Records (admin view) ────────────────
-        st.subheader("🗂️ Violation Records")
+        st.subheader(_t("🗂️ Violation Records"))
         v_all = get_violations()
 
         if not v_all.empty:
+            v_disp_admin = v_all.copy()
+            v_disp_admin['incident'] = v_disp_admin['incident'].apply(_t)
+            v_disp_admin['penalty_color'] = v_disp_admin['penalty_color'].apply(_t)
+            
+            _admin_cols = {
+                "id": "ID", "employee_name": _t("Employee"), "incident": _t("Incident"),
+                "penalty_color": _t("Penalty"), "deduction_days": _t("Deduction (days)"),
+                "submitted_by": _t("Submitted By"), "created_at": _t("Date & Time")
+            }
+            
             st.dataframe(
-                v_all[[
-                    "id", "employee_name", "incident",
-                    "penalty_color", "deduction_days",
-                    "submitted_by", "created_at",
-                ]],
+                v_disp_admin[list(_admin_cols.keys())].rename(columns=_admin_cols),
                 use_container_width=True,
             )
             del_id = st.selectbox(
-                "Select Record ID to delete:",
+                _t("Select Record ID to delete:"),
                 v_all["id"].tolist(),
                 key="del_v_sel",
             )
-            if st.button("🗑️ Delete Violation Record", key="del_v_btn"):
+            if st.button(_t("🗑️ Delete Violation Record"), key="del_v_btn"):
                 delete_violation(int(del_id))
-                st.success(f"Record **{del_id}** deleted.")
+                st.success(f"{_t('Record')} **{del_id}** {_t('deleted.')}")
                 st.rerun()
         else:
-            st.info("No violations logged yet.")
+            st.info(_t("No violations logged yet."))
 
 
 # =============================================================
@@ -958,81 +1139,91 @@ with tab_reports:
         pass   # Login form already rendered by require_auth
     else:
         _logout_button("tab3")
-        st.header("📊 HR Reports & Analytics")
+        st.header(_t("📊 HR Reports & Analytics"))
 
         # ── Filters ───────────────────────────────────────
-        with st.expander("🔍 Filters", expanded=True):
+        with st.expander(_t("🔍 Filters"), expanded=True):
             fi1, fi2, fi3, fi4 = st.columns([2, 3, 2, 2])
 
-            all_names = ["All"] + sorted(
+            all_names = [_t("All")] + sorted(
                 get_employees()["name"].tolist()
             )
-            all_incidents = ["All"] + sorted(
+            all_incidents = [_t("All")] + sorted(
                 inc
                 for cat in MATRIX_DATA.values()
                 for inc in cat
             )
-            all_penalties = ["All"] + list(PENALTY_MAP.keys())
+            all_penalties = [_t("All")] + list(PENALTY_MAP.keys())
 
             with fi1:
                 f_emp = st.selectbox(
-                    "Employee Name", all_names, key="r_emp"
+                    _t("Employee Name"), all_names, key="r_emp"
                 )
 
             with fi2:
                 fc1, fc2 = st.columns(2)
                 with fc1:
                     f_from = st.date_input(
-                        "From",
+                        _t("From"),
                         value=datetime.now().date() - timedelta(days=90),
                         key="r_from",
                     )
                 with fc2:
                     f_to = st.date_input(
-                        "To",
+                        _t("To"),
                         value=datetime.now().date(),
                         key="r_to",
                     )
 
             with fi3:
                 f_inc = st.selectbox(
-                    "Incident Type", all_incidents, key="r_inc"
+                    _t("Incident Type"), all_incidents, format_func=lambda x: _t(x) if x != _t("All") else x, key="r_inc"
                 )
 
             with fi4:
                 f_pen = st.selectbox(
-                    "Penalty Level", all_penalties, key="r_pen"
+                    _t("Penalty Level"), all_penalties, format_func=lambda x: _t(x) if x != _t("All") else x, key="r_pen"
                 )
 
         # Validate date range — no st.stop() inside a tab.
         if f_from > f_to:
-            st.error("⚠️ 'From' date must be before or equal to 'To' date.")
+            st.error(_t("⚠️ 'From' date must be before or equal to 'To' date."))
         else:
+            db_inc = None if f_inc == _t("All") else f_inc
+            db_pen = None if f_pen == _t("All") else f_pen
+            
             df = get_violations(
-                employee  = None if f_emp == "All" else f_emp,
+                employee  = None if f_emp == _t("All") else f_emp,
                 date_from = datetime.combine(f_from, datetime.min.time()),
                 date_to   = datetime.combine(f_to,   datetime.max.time()),
-                incident  = None if f_inc == "All" else f_inc,
-                penalty   = None if f_pen == "All" else f_pen,
+                incident  = db_inc,
+                penalty   = db_pen,
             )
 
             if df.empty:
-                st.info("ℹ️ No violations match the selected filters.")
+                st.info(_t("ℹ️ No violations match the selected filters."))
             else:
                 df["created_at"] = pd.to_datetime(df["created_at"])
 
                 # ── KPI row ───────────────────────────────
                 _kpi_row(df)
                 st.divider()
+                
+                # Copy for Translated Display
+                df_disp = df.copy()
+                df_disp['category'] = df_disp['category'].apply(_t)
+                df_disp['incident'] = df_disp['incident'].apply(_t)
+                df_disp['penalty_color'] = df_disp['penalty_color'].apply(_t)
+                df_disp['penalty_label'] = df_disp['penalty_label'].apply(_t)
 
                 # ── Chart row 1 ───────────────────────────
                 ch1, ch2 = st.columns(2)
 
                 with ch1:
                     fig_pie = px.pie(
-                        df,
+                        df_disp,
                         names="category",
-                        title="Violations by Category",
+                        title=_t("Violations by Category"),
                         color_discrete_sequence=px.colors.qualitative.Set2,
                     )
                     fig_pie.update_traces(
@@ -1044,17 +1235,17 @@ with tab_reports:
 
                 with ch2:
                     emp_cnt = (
-                        df["employee_name"]
+                        df_disp["employee_name"]
                         .value_counts()
                         .reset_index()
                     )
-                    emp_cnt.columns = ["Employee", "Count"]
+                    emp_cnt.columns = [_t("Employee"), _t("Count")]
                     fig_emp_bar = px.bar(
                         emp_cnt,
-                        x="Employee",
-                        y="Count",
-                        title="Violations per Employee",
-                        color="Count",
+                        x=_t("Employee"),
+                        y=_t("Count"),
+                        title=_t("Violations per Employee"),
+                        color=_t("Count"),
                         color_continuous_scale="Reds",
                     )
                     fig_emp_bar.update_layout(
@@ -1065,10 +1256,10 @@ with tab_reports:
                     st.plotly_chart(fig_emp_bar, use_container_width=True)
 
                 # ── Date bar chart (Feature B) ────────────
-                st.subheader("📅 Violations Over Time")
-                df["date_only"] = df["created_at"].dt.date
+                st.subheader(_t("📅 Violations Over Time"))
+                df_disp["date_only"] = df_disp["created_at"].dt.date
                 daily = (
-                    df.groupby("date_only")
+                    df_disp.groupby("date_only")
                     .size()
                     .reset_index(name="count")
                 )
@@ -1078,15 +1269,15 @@ with tab_reports:
                     daily,
                     x="date_only",
                     y="count",
-                    title="Daily Violation Count",
-                    labels={"date_only": "Date", "count": "Violations"},
+                    title=_t("Daily Violation Count"),
+                    labels={"date_only": _t("Date"), "count": _t("Violations")},
                     color_discrete_sequence=["#EF553B"],
                 )
                 fig_time.update_layout(
                     bargap=0.25,
                     xaxis_tickformat="%d %b %Y",
-                    xaxis_title="Date",
-                    yaxis_title="Violations",
+                    xaxis_title=_t("Date"),
+                    yaxis_title=_t("Violations"),
                 )
                 st.plotly_chart(fig_time, use_container_width=True)
 
@@ -1094,24 +1285,24 @@ with tab_reports:
                 ch3, ch4 = st.columns(2)
 
                 _PENALTY_COLOUR_MAP = {
-                    "Yellow":        "#FFD700",
-                    "Orange":        "#FF8C00",
-                    "Red":           "#DC143C",
-                    "Black":         "#444444",
-                    "Investigation": "#7B2FBE",
+                    _t("Yellow"):        "#FFD700",
+                    _t("Orange"):        "#FF8C00",
+                    _t("Red"):           "#DC143C",
+                    _t("Black"):         "#444444",
+                    _t("Investigation"): "#7B2FBE",
                 }
 
                 with ch3:
                     pen_cnt = (
-                        df["penalty_color"].value_counts().reset_index()
+                        df_disp["penalty_color"].value_counts().reset_index()
                     )
-                    pen_cnt.columns = ["Penalty", "Count"]
+                    pen_cnt.columns = [_t("Penalty"), _t("Count")]
                     fig_pen = px.bar(
                         pen_cnt,
-                        x="Penalty",
-                        y="Count",
-                        title="Violations by Penalty Level",
-                        color="Penalty",
+                        x=_t("Penalty"),
+                        y=_t("Count"),
+                        title=_t("Violations by Penalty Level"),
+                        color=_t("Penalty"),
                         color_discrete_map=_PENALTY_COLOUR_MAP,
                     )
                     fig_pen.update_layout(showlegend=False)
@@ -1119,18 +1310,18 @@ with tab_reports:
 
                 with ch4:
                     inc_cnt = (
-                        df["incident"]
+                        df_disp["incident"]
                         .value_counts()
                         .head(10)
                         .reset_index()
                     )
-                    inc_cnt.columns = ["Incident", "Count"]
+                    inc_cnt.columns = [_t("Incident"), _t("Count")]
                     fig_inc = px.bar(
                         inc_cnt,
-                        x="Count",
-                        y="Incident",
+                        x=_t("Count"),
+                        y=_t("Incident"),
                         orientation="h",
-                        title="Top 10 Incidents",
+                        title=_t("Top 10 Incidents"),
                         color_discrete_sequence=["#636EFA"],
                     )
                     fig_inc.update_layout(
@@ -1141,12 +1332,10 @@ with tab_reports:
                 st.divider()
 
                 # ── History table with deduction days ────
-                # (Feature C — includes Submitted By audit trail column)
-                st.subheader("📋 Violation History — Full Detail")
+                st.subheader(_t("📋 Violation History — Full Detail"))
 
                 today_d = date.today()
 
-                df_disp = df.copy()
                 df_disp["freeze_end_date"] = df_disp.apply(
                     lambda r: (
                         r["created_at"]
@@ -1158,56 +1347,61 @@ with tab_reports:
                 df_disp["Currently Frozen"] = df_disp[
                     "freeze_end_date"
                 ].apply(
-                    lambda d: "🔒 Yes"
+                    lambda d: f"🔒 {_t('Yes')}"
                     if (d is not None and d > today_d)
-                    else "✅ No"
+                    else f"✅ {_t('No')}"
                 )
 
                 # Column selection and renaming
                 _cols = {
-                    "employee_name":    "Employee",
-                    "category":         "Category",
-                    "incident":         "Incident",
-                    "penalty_color":    "Penalty",
-                    "penalty_label":    "Penalty Description",
-                    "deduction_hours":  "Deduction (hrs)",
-                    "deduction_days":   "Deduction (days)",
-                    "freeze_end_date":  "Freeze Until",
-                    "Currently Frozen": "Currently Frozen",
-                    "submitted_by":     "Submitted By",   # ← Audit Trail
-                    "created_at":       "Date & Time",
+                    "employee_name":    _t("Employee"),
+                    "category":         _t("Category"),
+                    "incident":         _t("Incident"),
+                    "penalty_color":    _t("Penalty"),
+                    "penalty_label":    _t("Penalty Description"),
+                    "deduction_hours":  _t("Deduction (hrs)"),
+                    "deduction_days":   _t("Deduction (days)"),
+                    "freeze_end_date":  _t("Freeze Until"),
+                    "Currently Frozen": _t("Currently Frozen"),
+                    "submitted_by":     _t("Submitted By"),   # ← Audit Trail
+                    "created_at":       _t("Date & Time"),
                 }
                 hist_df = df_disp[list(_cols.keys())].rename(columns=_cols)
                 st.dataframe(hist_df, use_container_width=True, height=420)
 
                 # ── Payroll summary per employee ──────────
-                st.subheader("💰 Payroll Deduction Summary")
+                st.subheader(_t("💰 Payroll Deduction Summary"))
 
                 def _active_freeze_label(emp: str) -> str:
                     sub = df[
                         (df["employee_name"] == emp) & (df["freeze_months"] > 0)
                     ]
                     if sub.empty:
-                        return "✅ No"
+                        return f"✅ {_t('No')}"
                     latest_idx = sub["created_at"].idxmax()
                     months     = int(sub.at[latest_idx, "freeze_months"])
                     end        = (
                         sub.at[latest_idx, "created_at"]
                         + pd.DateOffset(months=months)
                     ).date()
-                    return "🔒 Yes" if end > today_d else "✅ No"
+                    return f"🔒 {_t('Yes')}" if end > today_d else f"✅ {_t('No')}"
 
                 payroll = (
-                    df.groupby("employee_name")
+                    df_disp.groupby("employee_name")
                     .agg(
                         Violations      =("id",              "count"),
                         Deduction_Hours =("deduction_hours", "sum"),
                         Deduction_Days  =("deduction_days",  "sum"),
                     )
                     .reset_index()
-                    .rename(columns={"employee_name": "Employee"})
+                    .rename(columns={
+                        "employee_name": _t("Employee"),
+                        "Violations": _t("Violations"),
+                        "Deduction_Hours": _t("Deduction (hrs)"),
+                        "Deduction_Days": _t("Deduction (days)")
+                    })
                 )
-                payroll["Active Freeze"] = payroll["Employee"].apply(
+                payroll[_t("Active Freeze")] = payroll[_t("Employee")].apply(
                     _active_freeze_label
                 )
                 st.dataframe(payroll, use_container_width=True)
@@ -1215,7 +1409,7 @@ with tab_reports:
                 # ── CSV export ────────────────────────────
                 csv_bytes = hist_df.to_csv(index=False).encode("utf-8-sig")
                 st.download_button(
-                    label="📥 Export Filtered Report (CSV)",
+                    label=_t("📥 Export Filtered Report (CSV)"),
                     data=csv_bytes,
                     file_name=(
                         f"hr_report_"
