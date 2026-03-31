@@ -224,8 +224,8 @@ def _t(text: str) -> str:
             days_part = text.split(" Card — ")[1].split(" ")[0]
             color_ar = ARABIC_DICT.get(color_part, color_part)
             return f"إنذار {color_ar} — خصم {days_part} أيام (تعديل يدوي)"
-        except:
-            pass # Fallback
+        except (IndexError, ValueError, AttributeError):
+            pass  # Fallback to untranslated string
             
     return ARABIC_DICT.get(text, text)
 
@@ -448,7 +448,13 @@ def _secret(key: str, default: str = "") -> str:
 SENDER_EMAIL      = _secret("EMAIL")
 SENDER_PASSWORD   = _secret("PASSWORD")
 HR_MANAGER_EMAIL  = _secret("HR_MANAGER_EMAIL", SENDER_EMAIL)
-HR_ADMIN_PASSWORD = _secret("HR_ADMIN_PASSWORD", "admin123")
+HR_ADMIN_PASSWORD = _secret("HR_ADMIN_PASSWORD")
+if not HR_ADMIN_PASSWORD:
+    st.error(
+        "⚠️ HR_ADMIN_PASSWORD is not configured in secrets.toml. "
+        "Admin and Reports access is disabled until it is set."
+    )
+    HR_ADMIN_PASSWORD = "__UNSET__"   # ensures login always fails safely
 
 
 # =============================================================
@@ -461,6 +467,8 @@ DB_FILE = "hr_system.db"
 def _db():
     conn = sqlite3.connect(DB_FILE, check_same_thread=False)
     conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA journal_mode=WAL")       # allow concurrent reads during writes
+    conn.execute("PRAGMA busy_timeout=5000")      # retry up to 5 s on locked DB
     try:
         yield conn
         conn.commit()
@@ -496,6 +504,11 @@ def init_db() -> None:
                 proof_image     TEXT     NOT NULL DEFAULT '',
                 created_at      DATETIME NOT NULL
             );
+
+            CREATE INDEX IF NOT EXISTS idx_vio_employee ON violations(employee_name);
+            CREATE INDEX IF NOT EXISTS idx_vio_created  ON violations(created_at);
+            CREATE INDEX IF NOT EXISTS idx_vio_incident ON violations(incident);
+            CREATE INDEX IF NOT EXISTS idx_vio_penalty  ON violations(penalty_color);
         """)
 
         existing_cols = {r[1] for r in conn.execute("PRAGMA table_info(violations)")}
@@ -600,6 +613,11 @@ def delete_violation(vid: int) -> None:
     with _db() as conn:
         conn.execute("DELETE FROM violations WHERE id = ?", (vid,))
 
+_VIO_COLS = (
+    "id, employee_name, category, incident, penalty_color, penalty_label, "
+    "deduction_hours, deduction_days, freeze_months, comment, submitted_by, created_at"
+)
+
 def get_violations(
     employee:  str | None = None,
     date_from: datetime | None = None,
@@ -627,7 +645,7 @@ def get_violations(
         params.append(penalty)
 
     sql = (
-        f"SELECT * FROM violations "
+        f"SELECT {_VIO_COLS} FROM violations "
         f"WHERE {' AND '.join(clauses)} "
         f"ORDER BY created_at DESC"
     )
@@ -955,12 +973,17 @@ with tab_log:
             if not submitted_by.strip():
                 st.error(_t("⚠️ **HR Representative Name** is required. This field is the system's audit trail."))
             else:
+                _MAX_IMAGE_BYTES = 2 * 1024 * 1024   # 2 MB
                 proof_b64 = ""
                 if proof_file is not None:
-                    try:
-                        proof_b64 = base64.b64encode(proof_file.read()).decode("utf-8")
-                    except Exception as e:
-                        st.error(f"Image Error: {e}")
+                    if proof_file.size > _MAX_IMAGE_BYTES:
+                        st.error("⚠️ Image too large. Maximum allowed size is 2 MB.")
+                        proof_file = None
+                    else:
+                        try:
+                            proof_b64 = base64.b64encode(proof_file.read()).decode("utf-8")
+                        except Exception as e:
+                            st.error(f"Image Error: {e}")
 
                 penalty_color = calculate_next_penalty(emp_name, category, incident)
                 
@@ -1104,10 +1127,6 @@ with tab_admin:
                 "submitted_by": _t("Submitted By"), "created_at": _t("Date & Time")
             }
             
-            # Dropping proof_image so it doesn't freeze the dataframe UI with huge Base64 strings
-            if "proof_image" in v_disp_admin.columns:
-                v_disp_admin = v_disp_admin.drop(columns=["proof_image"])
-
             st.dataframe(
                 v_disp_admin[list(_admin_cols.keys())].rename(columns=_admin_cols),
                 use_container_width=True,
@@ -1131,8 +1150,12 @@ with tab_admin:
                 key="view_img_sel",
             )
             if st.button(_t("👁️ View Image"), key="view_img_btn"):
-                # Fetch the specific base64 string
-                img_b64 = v_all.loc[v_all["id"] == view_id, "proof_image"].iloc[0]
+                # Fetch only the image for this specific record (no full table scan)
+                with _db() as _img_conn:
+                    _img_row = _img_conn.execute(
+                        "SELECT proof_image FROM violations WHERE id = ?", (int(view_id),)
+                    ).fetchone()
+                img_b64 = _img_row["proof_image"] if _img_row else ""
                 if img_b64:
                     try:
                         img_data = base64.b64decode(img_b64)
@@ -1381,10 +1404,6 @@ with tab_reports:
                     "created_at":       _t("Date & Time"),
                 }
                 
-                # Dropping proof_image so it doesn't freeze the dataframe UI
-                if "proof_image" in df_disp.columns:
-                    df_disp = df_disp.drop(columns=["proof_image"])
-                    
                 hist_df = df_disp[list(_cols.keys())].rename(columns=_cols)
                 st.dataframe(hist_df, use_container_width=True, height=420)
 
