@@ -1123,6 +1123,28 @@ def _get_or_create_ws(sh, title: str, headers: list):
         return ws
 
 
+def _api_error_msg(exc: "gspread.exceptions.APIError") -> str:
+    """Convert an APIError to a human-readable message with actionable fix steps."""
+    try:
+        code = exc.response.status_code
+        detail = exc.response.json().get("error", {}).get("message", str(exc))
+    except Exception:
+        code = "?"
+        detail = str(exc)
+    if code in (403, 404):
+        return (
+            f"HTTP {code} from Google API — most likely **Google Sheets API** "
+            f"or **Google Drive API** is not enabled in your Cloud project.\n\n"
+            f"**Fix:**\n"
+            f"1. Go to https://console.cloud.google.com/apis/library\n"
+            f"2. Search **Google Sheets API** → Enable\n"
+            f"3. Search **Google Drive API** → Enable\n"
+            f"4. Click **🗑️ Clear Auth Cache** then retry.\n\n"
+            f"Google says: `{detail}`"
+        )
+    return f"Google API error {code}: {detail}"
+
+
 @st.cache_resource(show_spinner=False)
 def _get_sheets_client() -> "tuple[object|None, str]":
     """
@@ -1225,6 +1247,8 @@ def _sheets_full_sync() -> tuple[bool, str]:
             f"{len(emp_df)} employee(s) written to Google Sheets."
         )
 
+    except gspread.exceptions.APIError as api_exc:
+        return False, _api_error_msg(api_exc)
     except Exception as exc:
         return False, f"Sync failed: {exc}"
 
@@ -1776,7 +1800,7 @@ with tab_admin:
                 f"🔑 Service Account: `{_sa}`  \n"
                 "Full sync overwrites both **Violations** and **Employees** sheets."
             )
-            _tc_col, _sync_col = st.columns(2)
+            _tc_col, _sync_col, _clr_col = st.columns(3)
 
             with _tc_col:
                 if st.button("🔍 Test Connection", key="gsheets_test_btn"):
@@ -1795,7 +1819,9 @@ with tab_admin:
                                 _twsl = [ws.title for ws in _tsh.worksheets()]
                                 st.success(f"✅ Step 3: Sheets found — {_twsl}")
                             except gspread.exceptions.SpreadsheetNotFound:
-                                st.error("❌ Step 2: Spreadsheet not found (404). Enable **Google Sheets API** and **Google Drive API** in Google Cloud Console.")
+                                st.error("❌ Step 2: Spreadsheet not found — make sure you shared it with the service account email (Editor access).")
+                            except gspread.exceptions.APIError as _api_exc:
+                                st.error(f"❌ Step 2: {_api_error_msg(_api_exc)}")
                             except Exception as _te2:
                                 st.error(f"❌ Step 2 failed: {_te2}")
 
@@ -1807,6 +1833,11 @@ with tab_admin:
                         st.success(_msg)
                     else:
                         st.error(f"{_msg}")
+
+            with _clr_col:
+                if st.button("🗑️ Clear Auth Cache", key="gsheets_clear_cache_btn"):
+                    _get_sheets_client.clear()
+                    st.success("✅ Cache cleared — click Test Connection to retry.")
 
         with st.expander("⚙️ How to Set Up Google Sheets Sync", expanded=not bool(GSHEETS_SPREADSHEET_ID)):
             st.markdown("""
