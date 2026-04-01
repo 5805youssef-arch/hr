@@ -1124,21 +1124,22 @@ def _get_or_create_ws(sh, title: str, headers: list):
 
 
 @st.cache_resource(show_spinner=False)
-def _get_sheets_client():
+def _get_sheets_client() -> "tuple[object|None, str]":
     """
-    Lazily initialise and cache a gspread client for the app's lifetime.
-    Uses gspread 6.x service_account_from_dict (replaces deprecated authorize()).
-    Returns None when: gspread not installed, credentials missing, or any error.
+    Returns (client, error_msg).
+    client is None when unavailable; error_msg explains why.
     """
     if not _GSHEETS_AVAILABLE:
-        return None
+        return None, "gspread package not installed."
     sa_info = _gcp_service_account_info()
-    if not sa_info or not GSHEETS_SPREADSHEET_ID:
-        return None
+    if not sa_info:
+        return None, "No [gcp_service_account] section found in secrets.toml."
+    if not GSHEETS_SPREADSHEET_ID:
+        return None, "GSHEETS_SPREADSHEET_ID not set in secrets.toml."
     try:
-        return gspread.service_account_from_dict(sa_info)
-    except Exception:
-        return None
+        return gspread.service_account_from_dict(sa_info), ""
+    except Exception as exc:
+        return None, f"Auth error: {exc}"
 
 
 def _sheets_append_violation(row: list) -> None:
@@ -1150,12 +1151,19 @@ def _sheets_append_violation(row: list) -> None:
     Silently skips (st.warning only) on any error — never blocks the main flow.
     """
     try:
-        client = _get_sheets_client()
+        client, _err = _get_sheets_client()
         if client is None:
             return
         sh = client.open_by_key(GSHEETS_SPREADSHEET_ID)
         ws = _get_or_create_ws(sh, "Violations", _VIO_SHEET_HEADERS)
         ws.append_row(row, value_input_option="USER_ENTERED")
+    except gspread.exceptions.SpreadsheetNotFound:
+        sa_info = _gcp_service_account_info() or {}
+        sa_email = sa_info.get("client_email", "unknown")
+        st.warning(
+            f"☁️ Google Sheets: spreadsheet not found or not shared. "
+            f"Please share it with **{sa_email}** (Editor access)."
+        )
     except Exception as exc:
         st.warning(f"☁️ Google Sheets sync skipped: {exc}")
 
@@ -1167,13 +1175,21 @@ def _sheets_full_sync() -> tuple[bool, str]:
     proof_image is intentionally excluded (binary, irrelevant in a sheet).
     """
     try:
-        client = _get_sheets_client()
+        client, auth_err = _get_sheets_client()
         if client is None:
+            return False, f"Google Sheets not configured: {auth_err}"
+
+        try:
+            sh = client.open_by_key(GSHEETS_SPREADSHEET_ID)
+        except gspread.exceptions.SpreadsheetNotFound:
+            sa_info = _gcp_service_account_info() or {}
+            sa_email = sa_info.get("client_email", "unknown")
             return False, (
-                "Google Sheets is not configured. "
-                "Add GSHEETS_SPREADSHEET_ID and [gcp_service_account] to secrets.toml."
+                f"Spreadsheet not found or access denied.\n\n"
+                f"Make sure you shared the spreadsheet with:\n"
+                f"**{sa_email}**\n\n"
+                f"(Go to the spreadsheet → Share → paste that email → Editor → Send)"
             )
-        sh = client.open_by_key(GSHEETS_SPREADSHEET_ID)
 
         # ── Violations sheet (auto-create if missing) ─────────
         vio_df = get_violations()
@@ -1754,10 +1770,11 @@ with tab_admin:
                 "Expand the setup guide below to get started."
             )
         else:
+            _sa = (_gcp_service_account_info() or {}).get("client_email", "—")
             st.caption(
                 f"📋 Spreadsheet ID: `{GSHEETS_SPREADSHEET_ID}`  \n"
-                "Full sync overwrites both **Violations** and **Employees** sheets "
-                "with the current SQLite data."
+                f"🔑 Service Account: `{_sa}`  \n"
+                "Full sync overwrites both **Violations** and **Employees** sheets."
             )
             if st.button("🔄 Full Sync to Google Sheets", key="gsheets_sync_btn"):
                 with st.spinner("Syncing to Google Sheets…"):
