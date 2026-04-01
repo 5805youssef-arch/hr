@@ -1776,13 +1776,37 @@ with tab_admin:
                 f"🔑 Service Account: `{_sa}`  \n"
                 "Full sync overwrites both **Violations** and **Employees** sheets."
             )
-            if st.button("🔄 Full Sync to Google Sheets", key="gsheets_sync_btn"):
-                with st.spinner("Syncing to Google Sheets…"):
-                    _ok, _msg = _sheets_full_sync()
-                if _ok:
-                    st.success(_msg)
-                else:
-                    st.error(f"Sync failed: {_msg}")
+            _tc_col, _sync_col = st.columns(2)
+
+            with _tc_col:
+                if st.button("🔍 Test Connection", key="gsheets_test_btn"):
+                    with st.spinner("Testing…"):
+                        # Step 1: client
+                        _tc, _te = _get_sheets_client()
+                        if _tc is None:
+                            st.error(f"❌ Step 1 Auth failed: {_te}")
+                        else:
+                            st.success("✅ Step 1: Authentication OK")
+                            # Step 2: open spreadsheet
+                            try:
+                                _tsh = _tc.open_by_key(GSHEETS_SPREADSHEET_ID)
+                                st.success(f"✅ Step 2: Spreadsheet found — `{_tsh.title}`")
+                                # Step 3: list sheets
+                                _twsl = [ws.title for ws in _tsh.worksheets()]
+                                st.success(f"✅ Step 3: Sheets found — {_twsl}")
+                            except gspread.exceptions.SpreadsheetNotFound:
+                                st.error("❌ Step 2: Spreadsheet not found (404). Enable **Google Sheets API** and **Google Drive API** in Google Cloud Console.")
+                            except Exception as _te2:
+                                st.error(f"❌ Step 2 failed: {_te2}")
+
+            with _sync_col:
+                if st.button("🔄 Full Sync to Google Sheets", key="gsheets_sync_btn"):
+                    with st.spinner("Syncing to Google Sheets…"):
+                        _ok, _msg = _sheets_full_sync()
+                    if _ok:
+                        st.success(_msg)
+                    else:
+                        st.error(f"{_msg}")
 
         with st.expander("⚙️ How to Set Up Google Sheets Sync", expanded=not bool(GSHEETS_SPREADSHEET_ID)):
             st.markdown("""
