@@ -21,7 +21,7 @@ import sys
 import time
 import json
 import logging
-from datetime import datetime, timezone
+from datetime import datetime
 
 # ─────────────────────────────────────────────────────────────────
 # CONFIGURATION
@@ -38,7 +38,7 @@ END_DATE = datetime(2026, 4, 2, 23, 59, 59)
 # Output files
 OUTPUT_CSV = "bevatel_chats_2026_march.csv"
 INDEX_CACHE_FILE = "chats_index_cache.json"
-PROGRESS_FILE = "scrape_progress.json"
+PROGRESS_FILE = "scrape_progress.txt"
 
 # Rate limiting / delays
 DELAY_BETWEEN_PAGES = 1.0      # seconds between conversation list pages
@@ -84,7 +84,12 @@ def api_get(url, params=None):
             r = session.get(url, params=params, timeout=30)
 
             if r.status_code == 200:
-                return r.json()
+                try:
+                    return r.json()
+                except ValueError:
+                    log.error(f"Invalid JSON response from {url} (attempt {attempt}/{MAX_RETRIES})")
+                    time.sleep(2 ** attempt)
+                    continue
 
             if r.status_code == 429:
                 wait = DELAY_ON_RATE_LIMIT * attempt
@@ -184,7 +189,7 @@ def fetch_all_conversations():
 
     # Fetch each status type separately to avoid server-side timeouts
     # that occur with status=all on large accounts (causes HTTP 500)
-    STATUSES = ["open", "resolved", "pending"]
+    STATUSES = ["open", "resolved", "pending", "snoozed"]
     seen_ids = set()
     all_chats = []
 
@@ -282,9 +287,16 @@ def filter_conversations_by_date(chats):
 
     filtered = []
     for chat in chats:
-        created = chat.get("created_at") or 0
+        created = chat.get("created_at")
+        if created is None:
+            created = 0
         # last_activity_at might be a timestamp or might not exist
-        last_activity = chat.get("last_activity_at") or chat.get("timestamp") or created
+        # Use `is None` instead of `or` to avoid treating 0 as falsy
+        last_activity = chat.get("last_activity_at")
+        if last_activity is None:
+            last_activity = chat.get("timestamp")
+        if last_activity is None:
+            last_activity = created
 
         # Conversation was created before our end date AND
         # had activity after our start date
@@ -428,21 +440,17 @@ def extract_message_fields(msg, conv_id, msg_dt):
 # ─────────────────────────────────────────────────────────────────
 
 def load_progress():
-    """Load set of already-scraped conversation IDs."""
-    if os.path.exists(PROGRESS_FILE):
-        try:
-            with open(PROGRESS_FILE, "r") as f:
-                data = json.load(f)
-            return set(str(x) for x in data)
-        except Exception:
-            return set()
-    return set()
+    """Load set of already-scraped conversation IDs from append-only log."""
+    if not os.path.exists(PROGRESS_FILE):
+        return set()
+    with open(PROGRESS_FILE, "r") as f:
+        return set(line.strip() for line in f if line.strip())
 
 
-def save_progress(done_ids):
-    """Save the set of completed conversation IDs."""
-    with open(PROGRESS_FILE, "w") as f:
-        json.dump(list(done_ids), f)
+def mark_done(chat_id):
+    """Append a single completed conversation ID to the progress log (O(1) per write)."""
+    with open(PROGRESS_FILE, "a") as f:
+        f.write(f"{chat_id}\n")
 
 
 # ─────────────────────────────────────────────────────────────────
@@ -509,7 +517,8 @@ def main():
     log.info(f"Already completed: {len(done_ids):,}")
     log.info("=" * 60)
 
-    start_time = time.time()
+    actual_start_time = None
+    processed_count = 0
 
     for i, chat in enumerate(relevant_chats, 1):
         conv_id = str(chat.get("id"))
@@ -517,6 +526,9 @@ def main():
         if conv_id in done_ids:
             skipped += 1
             continue
+
+        if actual_start_time is None:
+            actual_start_time = time.time()
 
         chat_dt = parse_timestamp(chat.get("created_at"))
         log.info(f"[{i}/{total}] Conv {conv_id} (created {format_dt(chat_dt)}) ... ")
@@ -529,27 +541,26 @@ def main():
 
         # Mark as done
         done_ids.add(conv_id)
-        save_progress(done_ids)
+        mark_done(conv_id)
+        processed_count += 1
 
         log.info(f"  → {len(messages)} messages extracted (total so far: {total_messages:,})")
 
-        # ETA calculation
-        processed = i - skipped
-        if processed > 0:
-            elapsed = time.time() - start_time
-            rate = processed / elapsed if elapsed > 0 else 0
-            remaining = total - i
+        # ETA calculation (based on actual processing time, not skip time)
+        remaining = total - skipped - processed_count
+        if processed_count > 0 and actual_start_time is not None:
+            elapsed = time.time() - actual_start_time
+            rate = processed_count / elapsed if elapsed > 0 else 0
             if rate > 0:
-                eta_seconds = remaining / rate
-                eta_min = eta_seconds / 60
-                log.info(f"  → ETA: ~{eta_min:.0f} min remaining")
+                eta_min = (remaining / rate) / 60
+                log.info(f"  → ETA: ~{eta_min:.0f} min remaining ({remaining} left)")
 
         time.sleep(DELAY_BETWEEN_CHATS)
 
     # Final summary
     log.info("=" * 60)
     log.info("DONE!")
-    log.info(f"Conversations processed: {total - skipped:,}")
+    log.info(f"Conversations processed: {processed_count:,}")
     log.info(f"Conversations skipped (already done): {skipped:,}")
     log.info(f"Total messages extracted: {total_messages:,}")
     log.info(f"Output file: {OUTPUT_CSV}")
