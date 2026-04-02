@@ -45,7 +45,8 @@ DELAY_BETWEEN_PAGES = 1.0      # seconds between conversation list pages
 DELAY_BETWEEN_CHATS = 1.5      # seconds between each conversation scrape
 DELAY_BETWEEN_MSG_PAGES = 0.3  # seconds between message pagination calls
 DELAY_ON_RATE_LIMIT = 30       # seconds to wait on 429
-MAX_RETRIES = 4                # max retries per request
+MAX_RETRIES = 4                # max retries per request for server/HTTP errors
+MAX_NETWORK_RETRIES = 12       # max retries for network/DNS failures (internet may be down)
 
 # ─────────────────────────────────────────────────────────────────
 # LOGGING
@@ -74,11 +75,24 @@ session.headers.update({"api_access_token": API_TOKEN})
 # UTILITY: ROBUST REQUEST WITH RETRY + EXPONENTIAL BACKOFF
 # ─────────────────────────────────────────────────────────────────
 
+class NetworkError(Exception):
+    """Raised when all network retries are exhausted (DNS/connection failures)."""
+    pass
+
+
 def api_get(url, params=None):
     """
-    GET request with retry logic and exponential backoff.
-    Returns parsed JSON on success, None on permanent failure.
+    GET request with two-tier retry logic:
+      - HTTP errors (4xx/5xx): up to MAX_RETRIES with short exponential backoff
+      - Network errors (DNS/connection): up to MAX_NETWORK_RETRIES with longer backoff
+        (internet may be temporarily down — keep retrying patiently)
+
+    Returns parsed JSON on success.
+    Raises NetworkError if network is unreachable after all retries.
+    Returns None for permanent HTTP failures (4xx).
     """
+    network_attempt = 0
+
     for attempt in range(1, MAX_RETRIES + 1):
         try:
             r = session.get(url, params=params, timeout=30)
@@ -97,26 +111,33 @@ def api_get(url, params=None):
                 time.sleep(wait)
                 continue
 
-            # Other errors
             log.error(f"HTTP {r.status_code} for {url} params={params}")
             if r.status_code >= 500:
-                # Server error — retry
                 time.sleep(2 ** attempt)
                 continue
             # Client error (4xx except 429) — don't retry
             return None
 
-        except requests.exceptions.ConnectionError as e:
-            log.warning(f"Connection error (attempt {attempt}/{MAX_RETRIES}): {e}")
-            time.sleep(2 ** attempt)
-        except requests.exceptions.Timeout:
-            log.warning(f"Timeout (attempt {attempt}/{MAX_RETRIES})")
-            time.sleep(2 ** attempt)
+        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout) as e:
+            network_attempt += 1
+            # Use a longer, capped backoff for network errors so we wait out internet outages
+            wait = min(2 ** network_attempt, 120)  # max 2 minutes between retries
+            log.warning(
+                f"Network error (network attempt {network_attempt}/{MAX_NETWORK_RETRIES}, "
+                f"waiting {wait}s): {e}"
+            )
+            if network_attempt >= MAX_NETWORK_RETRIES:
+                raise NetworkError(f"Network unreachable after {MAX_NETWORK_RETRIES} attempts: {e}")
+            time.sleep(wait)
+            # Don't consume an HTTP attempt — reset and retry
+            attempt -= 1
+            continue
+
         except Exception as e:
             log.error(f"Unexpected error: {e}")
             time.sleep(2 ** attempt)
 
-    log.error(f"All {MAX_RETRIES} retries exhausted for {url}")
+    log.error(f"All {MAX_RETRIES} HTTP retries exhausted for {url}")
     return None
 
 
@@ -219,7 +240,13 @@ def fetch_all_conversations():
 
         while True:
             params = {"status": status, "per_page": 50, "page": page}
-            data = api_get(f"{BASE_URL}/{ACCOUNT_ID}/conversations", params)
+            try:
+                data = api_get(f"{BASE_URL}/{ACCOUNT_ID}/conversations", params)
+            except NetworkError as e:
+                log.error(f"  Network unreachable during indexing (status={status} page={page}). "
+                          f"Partial progress saved — re-run to continue. {e}")
+                save_partial()
+                return all_chats if all_chats else []
 
             if data is None:
                 consecutive_500s += 1
@@ -324,7 +351,10 @@ def fetch_messages_for_conversation(conv_id):
           b) All messages in a batch are older than START_DATE
       - Filter: only keep messages within [START_DATE, END_DATE]
 
-    Returns list of cleaned message dicts.
+    Returns (messages, completed):
+      - messages: list of cleaned message dicts
+      - completed: True if fetch finished normally, False if interrupted by network error
+        (caller should NOT mark conversation as done if completed=False)
     """
     url = f"{BASE_URL}/{ACCOUNT_ID}/conversations/{conv_id}/messages"
     messages = []
@@ -338,10 +368,14 @@ def fetch_messages_for_conversation(conv_id):
         if cursor is not None:
             params["before"] = cursor
 
-        data = api_get(url, params)
+        try:
+            data = api_get(url, params)
+        except NetworkError as e:
+            log.error(f"  Conv {conv_id}: network unreachable at page {page_num} — will retry next run. {e}")
+            return messages, False  # incomplete — don't mark as done
 
         if data is None:
-            log.warning(f"  Conv {conv_id}: API error at message page {page_num}, stopping.")
+            log.warning(f"  Conv {conv_id}: HTTP error at message page {page_num}, stopping.")
             break
 
         payload = data.get("payload", [])
@@ -396,7 +430,7 @@ def fetch_messages_for_conversation(conv_id):
 
         time.sleep(DELAY_BETWEEN_MSG_PAGES)
 
-    return messages
+    return messages, True  # completed normally
 
 
 def extract_message_fields(msg, conv_id, msg_dt):
@@ -533,13 +567,19 @@ def main():
         chat_dt = parse_timestamp(chat.get("created_at"))
         log.info(f"[{i}/{total}] Conv {conv_id} (created {format_dt(chat_dt)}) ... ")
 
-        messages = fetch_messages_for_conversation(conv_id)
+        messages, completed = fetch_messages_for_conversation(conv_id)
 
         if messages:
             append_to_csv(messages)
             total_messages += len(messages)
 
-        # Mark as done
+        if not completed:
+            # Network failed mid-fetch — don't mark as done so it retries next run
+            log.warning(f"  Conv {conv_id} left incomplete (network error). Will retry on next run.")
+            time.sleep(DELAY_BETWEEN_CHATS)
+            continue
+
+        # Mark as done only when fully fetched
         done_ids.add(conv_id)
         mark_done(conv_id)
         processed_count += 1
