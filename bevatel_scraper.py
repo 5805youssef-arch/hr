@@ -166,6 +166,12 @@ def fetch_all_conversations():
     """
     Fetch all conversation metadata from the API.
     Uses disk cache to avoid re-fetching on restart.
+
+    Strategy: fetch each status separately (open/resolved/pending) instead of
+    status=all, which can cause 500 errors on large datasets due to server-side
+    query timeouts. Partial progress is saved after every page so a crash at
+    page N resumes from page N rather than restarting from page 1.
+
     Returns list of conversation dicts sorted oldest-first.
     """
     cached = load_index_cache()
@@ -176,30 +182,77 @@ def fetch_all_conversations():
     log.info("PHASE 1: Indexing all conversations from server...")
     log.info("=" * 60)
 
+    # Fetch each status type separately to avoid server-side timeouts
+    # that occur with status=all on large accounts (causes HTTP 500)
+    STATUSES = ["open", "resolved", "pending"]
+    seen_ids = set()
     all_chats = []
-    page = 1
 
-    while True:
-        params = {"status": "all", "per_page": 50, "page": page}
-        data = api_get(f"{BASE_URL}/{ACCOUNT_ID}/conversations", params)
+    # Partial progress file so we can resume within Phase 1 after a crash
+    PARTIAL_FILE = INDEX_CACHE_FILE + ".partial"
+    start_from = {}  # {status: next_page_to_fetch}
 
-        if data is None:
-            log.error(f"Failed to fetch page {page}, stopping indexing.")
-            break
+    if os.path.exists(PARTIAL_FILE):
+        try:
+            with open(PARTIAL_FILE, "r", encoding="utf-8") as f:
+                partial = json.load(f)
+            all_chats = partial.get("chats", [])
+            start_from = partial.get("start_from", {})
+            seen_ids = {str(c.get("id")) for c in all_chats}
+            log.info(f"Resuming Phase 1 from partial save ({len(all_chats):,} already indexed)")
+        except Exception:
+            pass
 
-        payload = data.get("data", {}).get("payload", [])
+    def save_partial():
+        with open(PARTIAL_FILE, "w", encoding="utf-8") as f:
+            json.dump({"chats": all_chats, "start_from": start_from}, f, ensure_ascii=False)
 
-        if not payload:
-            log.info(f"Indexing complete at page {page - 1}.")
-            break
+    for status in STATUSES:
+        page = start_from.get(status, 1)
+        log.info(f"  Fetching status='{status}' starting at page {page}...")
+        consecutive_500s = 0
 
-        all_chats.extend(payload)
+        while True:
+            params = {"status": status, "per_page": 50, "page": page}
+            data = api_get(f"{BASE_URL}/{ACCOUNT_ID}/conversations", params)
 
-        if page % 20 == 0:
-            log.info(f"  Indexed page {page} | Total so far: {len(all_chats):,}")
+            if data is None:
+                consecutive_500s += 1
+                if consecutive_500s >= 3:
+                    log.error(f"  3 consecutive failures on status={status} page={page}, moving on.")
+                    break
+                log.warning(f"  Page {page} failed, retrying after extra wait...")
+                time.sleep(10)
+                continue
 
-        page += 1
-        time.sleep(DELAY_BETWEEN_PAGES)
+            consecutive_500s = 0
+            payload = data.get("data", {}).get("payload", [])
+
+            if not payload:
+                log.info(f"  status='{status}' complete at page {page - 1}.")
+                break
+
+            # Deduplicate across statuses (a conv can appear in multiple)
+            added = 0
+            for chat in payload:
+                cid = str(chat.get("id"))
+                if cid not in seen_ids:
+                    seen_ids.add(cid)
+                    all_chats.append(chat)
+                    added += 1
+
+            log.info(f"  status='{status}' page {page} | +{added} new | total: {len(all_chats):,}")
+
+            # Save partial progress after every page
+            start_from[status] = page + 1
+            save_partial()
+
+            page += 1
+            time.sleep(DELAY_BETWEEN_PAGES)
+
+    # Clean up partial file now that we're done
+    if os.path.exists(PARTIAL_FILE):
+        os.remove(PARTIAL_FILE)
 
     if not all_chats:
         log.error("No conversations found. Check API token / account ID.")
@@ -208,7 +261,7 @@ def fetch_all_conversations():
     # Sort oldest first
     all_chats.sort(key=lambda x: x.get("created_at") or 0)
     save_index_cache(all_chats)
-    log.info(f"Indexed {len(all_chats):,} conversations total.")
+    log.info(f"Indexed {len(all_chats):,} unique conversations total.")
     return all_chats
 
 
