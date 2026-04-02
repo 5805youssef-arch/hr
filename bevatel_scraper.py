@@ -32,11 +32,11 @@ API_TOKEN = "GECwNWow2Vix9KAvk1tWRQKK"
 BASE_URL = "https://chat.bevatel.com/api/v1/accounts"
 
 # Date range (inclusive)
-START_DATE = datetime(2026, 1, 3, 0, 0, 0)
+START_DATE = datetime(2026, 3, 1, 0, 0, 0)
 END_DATE = datetime(2026, 4, 2, 23, 59, 59)
 
 # Output files
-OUTPUT_CSV = "bevatel_chats_2026_Q1.csv"
+OUTPUT_CSV = "bevatel_chats_2026_march.csv"
 INDEX_CACHE_FILE = "chats_index_cache.json"
 PROGRESS_FILE = "scrape_progress.json"
 
