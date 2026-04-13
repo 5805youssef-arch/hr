@@ -826,9 +826,14 @@ def _db():
     finally:
         conn.close()
 
+@st.cache_resource
 def init_db() -> None:
-    with _db() as conn:
-        conn.executescript("""
+    # Phase 1 — initial schema creation.
+    # executescript() issues an implicit COMMIT, so we keep it outside the
+    # _db() context manager to avoid masking its rollback semantics.
+    raw = sqlite3.connect(DB_FILE)
+    try:
+        raw.executescript("""
             CREATE TABLE IF NOT EXISTS employees (
                 id            INTEGER PRIMARY KEY AUTOINCREMENT,
                 name          TEXT    UNIQUE NOT NULL,
@@ -869,18 +874,25 @@ def init_db() -> None:
                 UNIQUE(category, incident)
             );
         """)
+    finally:
+        raw.close()
 
+    # Phase 2 — incremental column migrations (use _db() safely here).
+    with _db() as conn:
         existing_cols = {r[1] for r in conn.execute("PRAGMA table_info(violations)")}
-        
+
         if "submitted_by" not in existing_cols:
             conn.execute("ALTER TABLE violations ADD COLUMN submitted_by TEXT NOT NULL DEFAULT ''")
-            
+
         if "proof_image" not in existing_cols:
             conn.execute("ALTER TABLE violations ADD COLUMN proof_image TEXT NOT NULL DEFAULT ''")
 
-        col_types = {r[1]: r[2].upper() for r in conn.execute("PRAGMA table_info(violations)")}
+    # Phase 3 — deduction_days INTEGER → REAL migration (needs executescript again).
+    raw = sqlite3.connect(DB_FILE)
+    try:
+        col_types = {r[1]: r[2].upper() for r in raw.execute("PRAGMA table_info(violations)")}
         if col_types.get("deduction_days", "REAL") == "INTEGER":
-            conn.executescript("""
+            raw.executescript("""
                 ALTER TABLE violations RENAME TO violations_v1;
 
                 CREATE TABLE violations (
@@ -913,6 +925,8 @@ def init_db() -> None:
 
                 DROP TABLE violations_v1;
             """)
+    finally:
+        raw.close()
 
         # Seed rules table from MATRIX_DATA if empty (first run only)
         count = conn.execute("SELECT COUNT(*) FROM rules").fetchone()[0]
@@ -1426,7 +1440,7 @@ def _kpi_row(df: pd.DataFrame) -> None:
 
     active_freezes = (
         df.groupby("employee_name")
-          .apply(_active_freeze)
+          .apply(_active_freeze, include_groups=False)
           .sum()
     )
 
@@ -1568,9 +1582,11 @@ with tab_log:
                 actual_override = custom_deduction if custom_deduction >= 0.0 else None
                 applied_days = actual_override if actual_override is not None else p_info["deduction_days"]
 
-                emp_row = employees_df[
-                    employees_df["name"] == emp_name
-                ].iloc[0]
+                emp_rows = employees_df[employees_df["name"] == emp_name]
+                if emp_rows.empty:
+                    st.error(_t("⚠️ Employee not found. Please refresh the page."))
+                    st.stop()
+                emp_row = emp_rows.iloc[0]
 
                 insert_violation(
                     emp_name, category, incident,
@@ -1695,7 +1711,11 @@ with tab_admin:
                 key="del_emp_sel",
             )
             if del_name != _t("— select —"):
-                if st.button(_t("🗑️ Delete Employee"), key="del_emp_btn"):
+                confirm_del_emp = st.checkbox(
+                    _t("I confirm I want to permanently delete this employee"),
+                    key="confirm_del_emp",
+                )
+                if st.button(_t("🗑️ Delete Employee"), key="del_emp_btn", disabled=not confirm_del_emp):
                     delete_employee(del_name)
                     st.success(f"Employee **{del_name}** {_t('removed.')}")
                     st.rerun()
@@ -1728,7 +1748,11 @@ with tab_admin:
                 v_all["id"].tolist(),
                 key="del_v_sel",
             )
-            if st.button(_t("🗑️ Delete Violation Record"), key="del_v_btn"):
+            confirm_del_v = st.checkbox(
+                _t("I confirm I want to permanently delete this violation record"),
+                key="confirm_del_v",
+            )
+            if st.button(_t("🗑️ Delete Violation Record"), key="del_v_btn", disabled=not confirm_del_v):
                 delete_violation(int(del_id))
                 st.success(f"{_t('Record')} **{del_id}** {_t('deleted.')}")
                 st.rerun()
