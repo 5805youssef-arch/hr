@@ -22,6 +22,7 @@ import re
 import sqlite3
 import base64
 import io
+import json
 from contextlib import contextmanager
 from datetime import date, datetime, timedelta
 
@@ -33,6 +34,8 @@ from email.mime.text import MIMEText
 from email.mime.image import MIMEImage
 
 import streamlit as st
+import gspread
+from google.oauth2.service_account import Credentials
 
 # ─────────────────────────────────────────────────────────────
 # PAGE CONFIG  (must be the very first Streamlit call)
@@ -159,6 +162,14 @@ ARABIC_DICT = {
     "Count": "العدد",
     "Active Freeze": "تجميد نشط",
     "📥 Export Filtered Report (Excel)": "📥 تصدير التقرير (إكسيل)",
+    "📤 Upload to Google Sheets": "📤 رفع إلى جداول بيانات Google",
+    "Upload Service Account JSON Key": "رفع مفتاح JSON لحساب الخدمة",
+    "Google Sheet Name (optional)": "اسم جدول البيانات (اختياري)",
+    "e.g. HR Report April 2026": "مثال: تقرير الموارد البشرية أبريل 2026",
+    "✅ Report successfully uploaded to Google Sheets!": "✅ تم رفع التقرير إلى جداول بيانات Google بنجاح!",
+    "🔗 Open Google Sheet": "🔗 فتح جدول البيانات",
+    "❌ Upload failed: ": "❌ فشل الرفع: ",
+    "⚠️ Please upload a Service Account JSON key to enable Google Sheets export.": "⚠️ يرجى رفع مفتاح JSON لحساب الخدمة لتمكين التصدير إلى Google Sheets.",
     "Yes": "نعم",
     "No": "لا",
 
@@ -1443,3 +1454,59 @@ with tab_reports:
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                     use_container_width=True,
                 )
+
+                # ── Google Sheets upload ─────────────────────
+                st.divider()
+                st.subheader(_t("📤 Upload to Google Sheets"))
+
+                gsheets_key_file = st.file_uploader(
+                    _t("Upload Service Account JSON Key"),
+                    type=["json"],
+                    key="gsheets_key",
+                    help="Upload a Google Service Account JSON key with Sheets & Drive API access.",
+                )
+
+                sheet_name_input = st.text_input(
+                    _t("Google Sheet Name (optional)"),
+                    placeholder=_t("e.g. HR Report April 2026"),
+                    key="gsheets_name",
+                )
+
+                if gsheets_key_file is not None:
+                    if st.button(_t("📤 Upload to Google Sheets"), use_container_width=True):
+                        try:
+                            creds_dict = json.load(gsheets_key_file)
+                            scopes = [
+                                "https://www.googleapis.com/auth/spreadsheets",
+                                "https://www.googleapis.com/auth/drive",
+                            ]
+                            creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
+                            gc = gspread.authorize(creds)
+
+                            title = sheet_name_input.strip() or (
+                                f"HR Report {datetime.now().strftime('%Y-%m-%d %H:%M')}"
+                            )
+                            spreadsheet = gc.create(title)
+
+                            # Write Violations History sheet
+                            ws_violations = spreadsheet.sheet1
+                            ws_violations.update_title("Violations History")
+                            violations_data = [hist_df.columns.tolist()] + hist_df.astype(str).values.tolist()
+                            ws_violations.update(violations_data)
+
+                            # Write Payroll Summary sheet
+                            ws_payroll = spreadsheet.add_worksheet(title="Payroll Summary", rows=500, cols=20)
+                            payroll_data = [payroll.columns.tolist()] + payroll.astype(str).values.tolist()
+                            ws_payroll.update(payroll_data)
+
+                            # Make the sheet accessible to anyone with the link
+                            spreadsheet.share(None, perm_type="anyone", role="reader")
+
+                            sheet_url = spreadsheet.url
+                            st.success(_t("✅ Report successfully uploaded to Google Sheets!"))
+                            st.link_button(_t("🔗 Open Google Sheet"), sheet_url, use_container_width=True)
+
+                        except Exception as exc:
+                            st.error(_t("❌ Upload failed: ") + str(exc))
+                else:
+                    st.info(_t("⚠️ Please upload a Service Account JSON key to enable Google Sheets export."))
