@@ -568,6 +568,7 @@ def init_db() -> None:
     finally:
         raw.close()
 
+
 def get_employees() -> pd.DataFrame:
     with _db() as conn:
         return pd.read_sql_query("SELECT * FROM employees ORDER BY name", conn)
