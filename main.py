@@ -513,6 +513,16 @@ def init_db() -> None:
                 proof_image     TEXT     NOT NULL DEFAULT '',
                 created_at      DATETIME NOT NULL
             );
+
+            CREATE TABLE IF NOT EXISTS rules (
+                id              INTEGER PRIMARY KEY AUTOINCREMENT,
+                category        TEXT    NOT NULL,
+                incident        TEXT    NOT NULL,
+                description     TEXT    DEFAULT '',
+                hr_note         TEXT    DEFAULT '',
+                reset_days      INTEGER DEFAULT 90,
+                escalation_json TEXT    NOT NULL DEFAULT '[]'
+            );
         """)
     finally:
         raw.close()
@@ -526,6 +536,24 @@ def init_db() -> None:
 
         if "proof_image" not in existing_cols:
             conn.execute("ALTER TABLE violations ADD COLUMN proof_image TEXT NOT NULL DEFAULT ''")
+
+        # Seed rules table from MATRIX_DATA if empty (first run only)
+        count = conn.execute("SELECT COUNT(*) FROM rules").fetchone()[0]
+        if count == 0:
+            for cat, incidents in MATRIX_DATA.items():
+                for inc_name, meta in incidents.items():
+                    conn.execute(
+                        """INSERT OR IGNORE INTO rules
+                           (category, incident, description, hr_note, reset_days, escalation_json)
+                           VALUES (?, ?, ?, ?, ?, ?)""",
+                        (
+                            cat, inc_name,
+                            meta.get("details", ""),
+                            meta.get("hr_note", ""),
+                            meta["reset"],
+                            json.dumps(meta["escalation"]),
+                        ),
+                    )
 
     # Phase 3 — deduction_days INTEGER → REAL migration (needs executescript again).
     raw = sqlite3.connect(DB_FILE)
@@ -667,6 +695,61 @@ def get_violations(
             df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0)
 
     return df
+
+# ── Rules CRUD ────────────────────────────────────────────────
+
+def get_rules() -> pd.DataFrame:
+    with _db() as conn:
+        return pd.read_sql_query(
+            "SELECT * FROM rules ORDER BY category, incident", conn
+        )
+
+def get_matrix_from_rules() -> dict:
+    """Build MATRIX_DATA-format dict from the rules table."""
+    matrix: dict = {}
+    with _db() as conn:
+        rows = conn.execute("SELECT * FROM rules ORDER BY category, incident").fetchall()
+    for r in rows:
+        cat = r["category"]
+        inc = r["incident"]
+        matrix.setdefault(cat, {})[inc] = {
+            "reset":      r["reset_days"],
+            "escalation": json.loads(r["escalation_json"]),
+            "details":    r["description"] or "",
+            "hr_note":    r["hr_note"] or "",
+        }
+    return matrix
+
+def save_rule(
+    category: str,
+    incident: str,
+    description: str,
+    hr_note: str,
+    reset_days: int,
+    escalation: list,
+    rule_id: int | None = None,
+) -> None:
+    esc_json = json.dumps(escalation)
+    with _db() as conn:
+        if rule_id:
+            conn.execute(
+                """UPDATE rules
+                   SET category=?, incident=?, description=?, hr_note=?,
+                       reset_days=?, escalation_json=?
+                   WHERE id=?""",
+                (category, incident, description, hr_note, reset_days, esc_json, rule_id),
+            )
+        else:
+            conn.execute(
+                """INSERT INTO rules
+                   (category, incident, description, hr_note, reset_days, escalation_json)
+                   VALUES (?, ?, ?, ?, ?, ?)""",
+                (category, incident, description, hr_note, reset_days, esc_json),
+            )
+
+def delete_rule(rule_id: int) -> None:
+    with _db() as conn:
+        conn.execute("DELETE FROM rules WHERE id = ?", (rule_id,))
 
 # =============================================================
 # SECTION 3 — BUSINESS LOGIC
