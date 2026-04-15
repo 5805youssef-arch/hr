@@ -117,6 +117,10 @@ ARABIC_DICT = {
     "Record": "سجل",
     "deleted.": "تم حذفه.",
     "No violations logged yet.": "لم يتم تسجيل أي مخالفات بعد.",
+    "I confirm I want to permanently delete this employee": "أؤكد رغبتي في حذف هذا الموظف نهائياً",
+    "I confirm I want to permanently delete this violation record": "أؤكد رغبتي في حذف هذا السجل نهائياً",
+    "Record not found. Please refresh the page.": "السجل غير موجود. يرجى تحديث الصفحة.",
+    "⚠️ Employee not found. Please refresh the page.": "⚠️ الموظف غير موجود. يرجى تحديث الصفحة.",
     # Image Viewer UI
     "🖼️ View Proof Image": "🖼️ عرض صورة الإثبات",
     "Select Record ID to view proof:": "اختر رقم السجل لعرض الصورة:",
@@ -288,6 +292,22 @@ PENALTY_MAP: dict[str, dict] = {
         "badge":           "🔍",
     },
 }
+
+def _build_penalty_label(penalty_color: str, applied_days: float) -> str:
+    """Return the display/storage label for a penalty.
+
+    Uses the canonical label from PENALTY_MAP unless a custom deduction
+    override was applied (and the penalty is not Investigation).
+    """
+    p = PENALTY_MAP[penalty_color]
+    if (
+        applied_days is not None
+        and applied_days != p["deduction_days"]
+        and penalty_color != "Investigation"
+    ):
+        return f"{penalty_color} Card — {applied_days} Days Deduction (Override)"
+    return p["label"]
+
 
 MATRIX_DATA: dict[str, dict] = {
     "Attendance & Adherence": {
@@ -602,10 +622,7 @@ def insert_violation(
     p = PENALTY_MAP[penalty_color]
     applied_deduction = override_days if override_days is not None and override_days >= 0 else p["deduction_days"]
     
-    if applied_deduction != p["deduction_days"] and penalty_color != "Investigation":
-        actual_label = f"{penalty_color} Card — {applied_deduction} Days Deduction (Override)"
-    else:
-        actual_label = p["label"]
+    actual_label = _build_penalty_label(penalty_color, applied_deduction)
         
     with _db() as conn:
         conn.execute(
@@ -698,7 +715,7 @@ def calculate_next_penalty(emp_name: str, category: str, incident: str) -> str:
 # SECTION 4 — EMAIL SERVICE
 # =============================================================
 
-_EMAIL_REGEX = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+_EMAIL_REGEX = re.compile(r"^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$")
 
 def _valid_email(addr: str) -> bool:
     return bool(_EMAIL_REGEX.match(addr.strip()))
@@ -721,14 +738,12 @@ def send_notifications(
     p         = PENALTY_MAP[penalty_color]
     is_invest = penalty_color == "Investigation"
 
-    if applied_days is not None and applied_days != p["deduction_days"] and not is_invest:
-        actual_label = f"{penalty_color} Card — {applied_days} Days Deduction (Override)"
-    else:
-        actual_label = p["label"]
+    actual_label = _build_penalty_label(penalty_color, applied_days)
 
     try:
         with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=10) as srv:
             srv.login(SENDER_EMAIL, SENDER_PASSWORD)
+            _img_attach_warning = ""
 
             if _valid_email(emp_email):
                 msg = MIMEMultipart()
@@ -765,9 +780,9 @@ def send_notifications(
                         img_data = base64.b64decode(proof_b64)
                         img_part = MIMEImage(img_data, name="Attached_Proof.jpg")
                         msg.attach(img_part)
-                    except Exception:
-                        pass
-                
+                    except Exception as img_exc:
+                        _img_attach_warning += f" (employee email: proof image not attached — {img_exc})"
+
                 srv.sendmail(SENDER_EMAIL, [emp_email], msg.as_string())
 
             if manager_email and _valid_email(manager_email):
@@ -802,12 +817,13 @@ def send_notifications(
                         img_data = base64.b64decode(proof_b64)
                         img_part = MIMEImage(img_data, name="Attached_Proof.jpg")
                         mgr.attach(img_part)
-                    except Exception:
-                        pass
-                
+                    except Exception as img_exc:
+                        _img_attach_warning += f" (manager email: proof image not attached — {img_exc})"
+
                 srv.sendmail(SENDER_EMAIL, recipients, mgr.as_string())
 
-        return True, "Emails sent successfully."
+        suffix = f" Warning:{_img_attach_warning}" if _img_attach_warning else ""
+        return True, f"Emails sent successfully.{suffix}"
 
     except smtplib.SMTPAuthenticationError:
         return False, "SMTP authentication failed — check EMAIL / PASSWORD in secrets."
@@ -856,11 +872,16 @@ def _kpi_row(df: pd.DataFrame) -> None:
         frozen = sub[sub["freeze_months"] > 0]
         if frozen.empty:
             return False
-        last = frozen.loc[frozen["created_at"].idxmax()]
-        end  = pd.to_datetime(last["created_at"]) + pd.DateOffset(
-            months=int(last["freeze_months"])
-        )
-        return end.to_pydatetime() > today
+        # Check if ANY freeze record is still active, not just the most recent one.
+        # An employee with an older 3-month freeze + a newer expired 2-month freeze
+        # must still show as frozen.
+        return frozen.apply(
+            lambda r: (
+                pd.to_datetime(r["created_at"])
+                + pd.DateOffset(months=int(r["freeze_months"]))
+            ).to_pydatetime() > today,
+            axis=1,
+        ).any()
 
     active_freezes = (
         df.groupby("employee_name")
@@ -962,8 +983,11 @@ with tab_log:
                 st.markdown("---")
                 force_investigation = st.checkbox(_t("🚨 Force Direct Investigation (Bypass Escalation)"))
                 custom_deduction = st.number_input(
-                    _t("Deduction Days Override (Optional)"), 
-                    value=-1.0, step=0.5, 
+                    _t("Deduction Days Override (Optional)"),
+                    value=-1.0,
+                    min_value=-1.0,
+                    max_value=365.0,
+                    step=0.5,
                     help=_t("Leave as -1.0 to use default system calculation.")
                 )
 
@@ -990,6 +1014,14 @@ with tab_log:
             else:
                 proof_b64 = ""
                 if proof_file is not None:
+                    if proof_file.size > 5 * 1024 * 1024:
+                        st.error(
+                            f"⚠️ Proof image is too large "
+                            f"({proof_file.size / 1024 / 1024:.1f} MB). "
+                            "Maximum allowed size is 5 MB. "
+                            "Please compress or crop the image before uploading."
+                        )
+                        st.stop()
                     try:
                         proof_b64 = base64.b64encode(proof_file.read()).decode("utf-8")
                     except Exception as e:
@@ -1044,10 +1076,19 @@ with tab_log:
 
                 if penalty_color == "Investigation":
                     st.error(_t("🚨 **INVESTIGATION TRIGGERED** \nThe employee must be suspended immediately. Escalate to the HR Director and do **not** allow the employee on-site."))
+                    if not _secret("HR_MANAGER_EMAIL"):
+                        st.warning(
+                            "⚠️ **Configuration Warning:** `HR_MANAGER_EMAIL` is not set in "
+                            "`.streamlit/secrets.toml`. The HR Director will **not** receive a "
+                            "separate Investigation alert. Please configure this key immediately."
+                        )
                 elif applied_days > 0:
+                    # Only show original deduction_hours when no day-override was applied.
+                    # If a custom override is set, the original hours figure no longer matches.
                     hrs = (
                         f" ({p_info['deduction_hours']} hrs)"
-                        if p_info["deduction_hours"] > 0 else ""
+                        if p_info["deduction_hours"] > 0 and actual_override is None
+                        else ""
                     )
                     st.info(f"{_t('💰 **Payroll:**')} {applied_days} {_t('day(s) deduction')} {hrs} {_t('must be applied.')}")
 
@@ -1443,13 +1484,15 @@ with tab_reports:
                     ]
                     if sub.empty:
                         return f"✅ {_t('No')}"
-                    latest_idx = sub["created_at"].idxmax()
-                    months     = int(sub.at[latest_idx, "freeze_months"])
-                    end        = (
-                        sub.at[latest_idx, "created_at"]
-                        + pd.DateOffset(months=months)
-                    ).date()
-                    return f"🔒 {_t('Yes')}" if end > today_d else f"✅ {_t('No')}"
+                    # Check if ANY freeze record is still active, not just the most recent.
+                    is_active = sub.apply(
+                        lambda r: (
+                            r["created_at"]
+                            + pd.DateOffset(months=int(r["freeze_months"]))
+                        ).date() > today_d,
+                        axis=1,
+                    ).any()
+                    return f"🔒 {_t('Yes')}" if is_active else f"✅ {_t('No')}"
 
                 payroll = (
                     df_disp.groupby("employee_name")
@@ -1516,7 +1559,7 @@ with tab_reports:
                                 "https://www.googleapis.com/auth/drive",
                             ]
                             creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
-                            gc = gspread.authorize(creds)
+                            gc = gspread.Client(auth=creds)
 
                             title = sheet_name_input.strip() or (
                                 f"HR Report {datetime.now().strftime('%Y-%m-%d %H:%M')}"
@@ -1527,15 +1570,16 @@ with tab_reports:
                             ws_violations = spreadsheet.sheet1
                             ws_violations.update_title("Violations History")
                             violations_data = [hist_df.columns.tolist()] + hist_df.astype(str).values.tolist()
-                            ws_violations.update(violations_data)
+                            ws_violations.update(range_name="A1", values=violations_data)
 
                             # Write Payroll Summary sheet
                             ws_payroll = spreadsheet.add_worksheet(title="Payroll Summary", rows=500, cols=20)
                             payroll_data = [payroll.columns.tolist()] + payroll.astype(str).values.tolist()
-                            ws_payroll.update(payroll_data)
+                            ws_payroll.update(range_name="A1", values=payroll_data)
 
-                            # Make the sheet accessible to anyone with the link
-                            spreadsheet.share(None, perm_type="anyone", role="reader")
+                            # Public sharing is intentionally disabled — employee
+                            # disciplinary data must not be world-readable.
+                            # Share the spreadsheet manually from Google Drive if needed.
 
                             sheet_url = spreadsheet.url
                             st.success(_t("✅ Report successfully uploaded to Google Sheets!"))
