@@ -41,10 +41,359 @@ from google.oauth2.service_account import Credentials
 # PAGE CONFIG  (must be the very first Streamlit call)
 # ─────────────────────────────────────────────────────────────
 st.set_page_config(
-    page_title="HR Disciplinary System",
-    page_icon="⚖️",
+    page_title="Travel Gate — HR System",
+    page_icon="✈️",
     layout="wide",
 )
+
+# ─────────────────────────────────────────────────────────────
+# BRAND THEME  — Travel Gate KSA (teal #2FB89E · orange #E8825C)
+# ─────────────────────────────────────────────────────────────
+st.markdown("""
+<style>
+/* ── Google Fonts ─────────────────────────────────────────── */
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700;9..40,800&family=Noto+Sans+Arabic:wght@400;500;600;700;800&display=swap');
+
+/* ── Design tokens ───────────────────────────────────────── */
+:root {
+  --pri:    #2FB89E;
+  --priD:   #1A9E85;
+  --priL:   #E6F7F3;
+  --priM:   #A8DDD2;
+  --acc:    #E8825C;
+  --accD:   #C96A45;
+  --accL:   #FFF0EA;
+  --bg:     #F5F7FA;
+  --card:   #FFFFFF;
+  --g50:    #F5F7FA;
+  --g100:   #ECEEF2;
+  --g200:   #D9DDE4;
+  --g300:   #B8C0CB;
+  --g400:   #8896A5;
+  --g500:   #5C6B7A;
+  --g600:   #3E4F5E;
+  --g700:   #273545;
+  --g800:   #131E2B;
+  --ok:     #16A34A; --okL: #ECFDF5;
+  --warn:   #D97706; --warnL: #FFFBEB;
+  --err:    #DC2626; --errL: #FEF2F2;
+  --info:   #2563EB; --infoL: #EFF6FF;
+  --pY:     #D97706; --pYB: #FFF7E6;
+  --pO:     #EA580C; --pOB: #FFF4ED;
+  --pR:     #DC2626; --pRB: #FEF2F2;
+  --pK:     #1E293B; --pKB: #F1F5F9;
+  --pI:     #7C3AED; --pIB: #F5F3FF;
+  --sh1:    0 1px 4px rgba(0,0,0,.06), 0 2px 8px rgba(0,0,0,.04);
+  --sh2:    0 4px 16px rgba(0,0,0,.08);
+  --r2:     10px;
+  --r3:     14px;
+  --tr:     all .18s cubic-bezier(.4,0,.2,1);
+}
+
+/* ── Global body ─────────────────────────────────────────── */
+html, body, [class*="css"] {
+  font-family: 'DM Sans', 'Segoe UI', sans-serif !important;
+}
+body { background: var(--bg); color: var(--g700); }
+
+/* ── Hide default top decoration bar ────────────────────── */
+[data-testid="stDecoration"]  { display: none; }
+
+/* ── Top toolbar background ─────────────────────────────── */
+[data-testid="stHeader"] {
+  background: var(--card) !important;
+  border-bottom: 2px solid var(--pri);
+}
+
+/* ── Main content area ───────────────────────────────────── */
+.main .block-container {
+  padding-top: 1.5rem !important;
+  padding-bottom: 3rem !important;
+  max-width: 1280px !important;
+}
+
+/* ── Page title (h1) ─────────────────────────────────────── */
+h1 {
+  font-size: 1.7rem !important;
+  font-weight: 800 !important;
+  color: var(--g800) !important;
+  letter-spacing: -0.5px;
+  margin-bottom: .25rem !important;
+}
+
+/* ── Section headings ────────────────────────────────────── */
+h2 {
+  font-size: 1.2rem !important;
+  font-weight: 700 !important;
+  color: var(--g700) !important;
+  padding-left: 12px;
+  border-left: 4px solid var(--pri);
+  margin-top: 1rem !important;
+}
+h3 {
+  font-size: 1.05rem !important;
+  font-weight: 700 !important;
+  color: var(--g700) !important;
+}
+
+/* ── Tabs ────────────────────────────────────────────────── */
+.stTabs [data-baseweb="tab-list"] {
+  background: var(--card);
+  border-radius: var(--r3);
+  padding: 5px 6px;
+  gap: 4px;
+  box-shadow: var(--sh1);
+  border: 1px solid var(--g100);
+  margin-bottom: .5rem;
+}
+.stTabs [data-baseweb="tab"] {
+  border-radius: var(--r2) !important;
+  padding: 9px 22px !important;
+  font-size: .85rem !important;
+  font-weight: 600 !important;
+  color: var(--g500) !important;
+  background: transparent !important;
+  border: none !important;
+  transition: var(--tr);
+}
+.stTabs [data-baseweb="tab"]:hover {
+  color: var(--pri) !important;
+  background: var(--priL) !important;
+}
+.stTabs [aria-selected="true"] {
+  background: var(--pri) !important;
+  color: #fff !important;
+  box-shadow: 0 2px 8px rgba(47,184,158,.35) !important;
+}
+
+/* ── KPI Metric cards ────────────────────────────────────── */
+[data-testid="metric-container"] {
+  background: var(--card) !important;
+  border: 1px solid var(--g100) !important;
+  border-radius: var(--r3) !important;
+  padding: 16px 20px !important;
+  box-shadow: var(--sh1) !important;
+  border-top: 3px solid var(--pri) !important;
+}
+[data-testid="stMetricLabel"] > div {
+  font-size: .72rem !important;
+  font-weight: 600 !important;
+  color: var(--g500) !important;
+  text-transform: uppercase;
+  letter-spacing: .6px;
+}
+[data-testid="stMetricValue"] > div {
+  font-size: 2rem !important;
+  font-weight: 800 !important;
+  color: var(--pri) !important;
+}
+
+/* ── Primary buttons ─────────────────────────────────────── */
+.stButton > button {
+  border-radius: var(--r2) !important;
+  font-weight: 600 !important;
+  font-size: .85rem !important;
+  padding: 8px 22px !important;
+  border: none !important;
+  background: var(--pri) !important;
+  color: #fff !important;
+  transition: var(--tr) !important;
+  box-shadow: 0 1px 3px rgba(0,0,0,.1) !important;
+}
+.stButton > button:hover:not([disabled]) {
+  background: var(--priD) !important;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(47,184,158,.4) !important;
+}
+.stButton > button[disabled] {
+  background: var(--g200) !important;
+  color: var(--g400) !important;
+  cursor: not-allowed;
+  box-shadow: none !important;
+}
+
+/* ── Download / accent buttons ───────────────────────────── */
+[data-testid="stDownloadButton"] > button,
+[data-testid="stLinkButton"] > a {
+  background: var(--acc) !important;
+  color: #fff !important;
+  border-radius: var(--r2) !important;
+  font-weight: 600 !important;
+}
+[data-testid="stDownloadButton"] > button:hover,
+[data-testid="stLinkButton"] > a:hover {
+  background: var(--accD) !important;
+  box-shadow: 0 4px 14px rgba(232,130,92,.4) !important;
+}
+
+/* ── Form containers ─────────────────────────────────────── */
+[data-testid="stForm"] {
+  background: var(--card) !important;
+  border-radius: var(--r3) !important;
+  padding: 20px 24px !important;
+  border: 1px solid var(--g100) !important;
+  box-shadow: var(--sh1) !important;
+}
+
+/* ── Expanders ───────────────────────────────────────────── */
+[data-testid="stExpander"] {
+  background: var(--card) !important;
+  border-radius: var(--r3) !important;
+  border: 1px solid var(--g100) !important;
+  box-shadow: var(--sh1) !important;
+  overflow: hidden;
+}
+[data-testid="stExpander"] summary {
+  font-weight: 600 !important;
+  color: var(--g700) !important;
+  font-size: .9rem !important;
+  padding: 12px 16px !important;
+}
+[data-testid="stExpander"] summary:hover {
+  background: var(--priL) !important;
+}
+
+/* ── Alert boxes ─────────────────────────────────────────── */
+[data-testid="stAlert"] [data-testid="stMarkdownContainer"] {
+  font-size: .875rem !important;
+}
+div[data-testid="stAlert"][kind="info"],
+div.stInfo {
+  border-left: 4px solid var(--pri) !important;
+  background: var(--priL) !important;
+  border-radius: 0 var(--r2) var(--r2) 0 !important;
+}
+div[data-testid="stAlert"][kind="success"],
+div.stSuccess {
+  border-left: 4px solid var(--ok) !important;
+  background: var(--okL) !important;
+  border-radius: 0 var(--r2) var(--r2) 0 !important;
+}
+div[data-testid="stAlert"][kind="warning"],
+div.stWarning {
+  border-left: 4px solid var(--warn) !important;
+  background: var(--warnL) !important;
+  border-radius: 0 var(--r2) var(--r2) 0 !important;
+}
+div[data-testid="stAlert"][kind="error"],
+div.stError {
+  border-left: 4px solid var(--err) !important;
+  background: var(--errL) !important;
+  border-radius: 0 var(--r2) var(--r2) 0 !important;
+}
+
+/* ── Dataframes ──────────────────────────────────────────── */
+[data-testid="stDataFrame"] > div {
+  border-radius: var(--r3) !important;
+  overflow: hidden !important;
+  border: 1px solid var(--g100) !important;
+  box-shadow: var(--sh1) !important;
+}
+
+/* ── Select boxes / Text inputs ──────────────────────────── */
+[data-testid="stSelectbox"] > div > div,
+[data-testid="stTextInput"] > div > div > input,
+[data-testid="stTextArea"] textarea,
+[data-testid="stNumberInput"] input {
+  border-radius: var(--r2) !important;
+  border: 1px solid var(--g200) !important;
+  background: var(--card) !important;
+  font-size: .875rem !important;
+  transition: border-color .15s !important;
+}
+[data-testid="stTextInput"] > div > div > input:focus,
+[data-testid="stTextArea"] textarea:focus,
+[data-testid="stNumberInput"] input:focus {
+  border-color: var(--pri) !important;
+  box-shadow: 0 0 0 3px rgba(47,184,158,.15) !important;
+}
+
+/* ── File uploader ───────────────────────────────────────── */
+[data-testid="stFileUploadDropzone"] {
+  border: 2px dashed var(--priM) !important;
+  border-radius: var(--r3) !important;
+  background: var(--priL) !important;
+  transition: var(--tr) !important;
+}
+[data-testid="stFileUploadDropzone"]:hover {
+  border-color: var(--pri) !important;
+  background: #d4f0ea !important;
+}
+
+/* ── Checkbox ────────────────────────────────────────────── */
+[data-testid="stCheckbox"] span {
+  font-size: .875rem !important;
+  color: var(--g600) !important;
+}
+
+/* ── Divider ─────────────────────────────────────────────── */
+hr {
+  border-color: var(--g100) !important;
+  margin: 1.25rem 0 !important;
+}
+
+/* ── Date input ──────────────────────────────────────────── */
+[data-testid="stDateInput"] input {
+  border-radius: var(--r2) !important;
+  border: 1px solid var(--g200) !important;
+}
+
+/* ── Language toggle button (top-right) ──────────────────── */
+/* targets the first button in the last column of the lang row */
+[data-testid="stHorizontalBlock"]:first-of-type .stButton > button {
+  background: var(--g100) !important;
+  color: var(--g700) !important;
+  font-size: .78rem !important;
+  font-weight: 700 !important;
+  padding: 5px 12px !important;
+  border-radius: 99px !important;
+  box-shadow: none !important;
+}
+[data-testid="stHorizontalBlock"]:first-of-type .stButton > button:hover {
+  background: var(--priL) !important;
+  color: var(--pri) !important;
+  transform: none;
+  box-shadow: none !important;
+}
+
+/* ── Penalty badge colors (used in captions / markdown) ─── */
+.badge-yellow      { background:var(--pYB); color:var(--pY);  padding:2px 8px; border-radius:99px; font-weight:700; font-size:.78rem; }
+.badge-orange      { background:var(--pOB); color:var(--pO);  padding:2px 8px; border-radius:99px; font-weight:700; font-size:.78rem; }
+.badge-red         { background:var(--pRB); color:var(--pR);  padding:2px 8px; border-radius:99px; font-weight:700; font-size:.78rem; }
+.badge-black       { background:var(--pKB); color:var(--pK);  padding:2px 8px; border-radius:99px; font-weight:700; font-size:.78rem; }
+.badge-investigate { background:var(--pIB); color:var(--pI);  padding:2px 8px; border-radius:99px; font-weight:700; font-size:.78rem; }
+
+/* ── Brand strip ─────────────────────────────────────────── */
+.tg-brand-strip {
+  display:flex; align-items:center; gap:12px;
+  background: linear-gradient(135deg, var(--pri) 0%, var(--priD) 100%);
+  color: #fff; padding: 12px 20px; border-radius: var(--r3);
+  margin-bottom: 1rem; box-shadow: var(--sh2);
+}
+.tg-brand-strip .logo {
+  width: 40px; height: 40px;
+  background: rgba(255,255,255,.2);
+  border-radius: 10px;
+  display:flex; align-items:center; justify-content:center;
+  font-size: 1.2rem; font-weight: 900;
+}
+.tg-brand-strip .brand-text { line-height:1.2; }
+.tg-brand-strip .brand-text .name { font-size:1.05rem; font-weight:800; }
+.tg-brand-strip .brand-text .sub  { font-size:.72rem; opacity:.85; }
+
+/* ── RTL support ─────────────────────────────────────────── */
+body.rtl, body.rtl * {
+  direction: rtl !important;
+  font-family: 'Noto Sans Arabic', 'Segoe UI', sans-serif !important;
+}
+body.rtl h2 {
+  padding-left: 0 !important;
+  padding-right: 12px !important;
+  border-left: none !important;
+  border-right: 4px solid var(--pri) !important;
+}
+</style>
+""", unsafe_allow_html=True)
 
 # ─────────────────────────────────────────────────────────────
 # I18N TRANSLATION DICTIONARY & HELPERS
@@ -172,6 +521,31 @@ ARABIC_DICT = {
     "⚠️ Please upload a Service Account JSON key to enable Google Sheets export.": "⚠️ يرجى رفع مفتاح JSON لحساب الخدمة لتمكين التصدير إلى Google Sheets.",
     "Yes": "نعم",
     "No": "لا",
+
+    # Tab 4: Rules Management
+    "📐 Rules Management": "📐 إدارة القواعد",
+    "📐 Penalty Rules Management": "📐 إدارة قواعد العقوبات",
+    "Current Rules": "القواعد الحالية",
+    "Edit / Add Rule": "تعديل / إضافة قاعدة",
+    "Select Rule to Edit": "اختر القاعدة للتعديل",
+    "— new rule —": "— قاعدة جديدة —",
+    "Category *": "التصنيف *",
+    "Incident Name *": "اسم الخطأ *",
+    "Description": "الوصف",
+    "HR Note": "ملاحظة HR",
+    "Reset Window (days)": "فترة إعادة الضبط (أيام)",
+    "Escalation Steps (comma-separated)": "خطوات التصعيد (مفصولة بفاصلة)",
+    "e.g. Yellow,Yellow,Orange,Red,Black,Investigation": "مثال: Yellow,Yellow,Orange,Red,Black,Investigation",
+    "💾 Save Rule": "💾 حفظ القاعدة",
+    "🗑️ Delete Rule": "🗑️ حذف القاعدة",
+    "⚠️ Category and Incident Name are required.": "⚠️ التصنيف واسم الخطأ مطلوبان.",
+    "⚠️ Invalid escalation steps. Use colors: Yellow, Orange, Red, Black, Investigation": "⚠️ خطوات التصعيد غير صحيحة. استخدم: Yellow, Orange, Red, Black, Investigation",
+    "✅ Rule saved.": "✅ تم حفظ القاعدة.",
+    "✅ Rule deleted.": "✅ تم حذف القاعدة.",
+    "I confirm I want to permanently delete this rule": "أؤكد أنني أريد حذف هذه القاعدة نهائياً",
+    "ID": "الرقم",
+    "Reset Days": "أيام الإعادة",
+    "Escalation": "التصعيد",
 
     # Categories & Incidents
     "Attendance & Adherence": "الحضور والالتزام",
@@ -964,7 +1338,30 @@ def _kpi_row(df: pd.DataFrame) -> None:
 
 init_db()
 
-st.title(_t("HR Disciplinary Management System"))
+# ── Brand header strip ──────────────────────────────────────
+st.markdown("""
+<div class="tg-brand-strip">
+  <div class="logo">TG</div>
+  <div class="brand-text">
+    <div class="name">Travel Gate KSA</div>
+    <div class="sub">HR Disciplinary Management System</div>
+  </div>
+</div>
+""", unsafe_allow_html=True)
+
+# ── RTL body-class injection ────────────────────────────────
+if st.session_state.lang == "ar":
+    st.markdown(
+        "<script>document.body.classList.add('rtl');"
+        "document.body.setAttribute('dir','rtl');</script>",
+        unsafe_allow_html=True,
+    )
+else:
+    st.markdown(
+        "<script>document.body.classList.remove('rtl');"
+        "document.body.removeAttribute('dir');</script>",
+        unsafe_allow_html=True,
+    )
 
 if _USING_DEFAULT_PASS:
     st.warning(
@@ -972,10 +1369,11 @@ if _USING_DEFAULT_PASS:
         "Please configure `HR_ADMIN_PASSWORD` in `.streamlit/secrets.toml` before deploying."
     )
 
-tab_log, tab_admin, tab_reports = st.tabs([
+tab_log, tab_admin, tab_reports, tab_rules = st.tabs([
     _t("📝 Log Violation"),
     _t("⚙️ Admin Dashboard"),
     _t("📊 Reports & Analytics"),
+    _t("📐 Rules Management"),
 ])
 
 # =============================================================
@@ -1628,3 +2026,132 @@ with tab_reports:
                             st.error(_t("❌ Upload failed: ") + str(exc))
                 else:
                     st.info(_t("⚠️ Please upload a Service Account JSON key to enable Google Sheets export."))
+
+# =============================================================
+# TAB 4 — RULES MANAGEMENT
+# =============================================================
+with tab_rules:
+    if not require_auth("tab4"):
+        pass   # Login form rendered by require_auth
+    else:
+        _logout_button("tab4")
+        st.subheader(_t("📐 Penalty Rules Management"))
+
+        rules_df = get_rules()
+
+        # ── Current rules table ───────────────────────────
+        if not rules_df.empty:
+            disp_rules = rules_df[["id", "category", "incident", "reset_days", "escalation_json"]].copy()
+            disp_rules.columns = [
+                _t("ID"), _t("Category"), _t("Incident"),
+                _t("Reset Days"), _t("Escalation"),
+            ]
+            st.dataframe(disp_rules, use_container_width=True)
+        else:
+            st.info(_t("No violations logged yet."))
+
+        st.divider()
+        st.subheader(_t("Edit / Add Rule"))
+
+        # ── Rule selector ─────────────────────────────────
+        rule_options = [_t("— new rule —")] + [
+            f"[{r['id']}] {r['category']} › {r['incident']}"
+            for _, r in rules_df.iterrows()
+        ] if not rules_df.empty else [_t("— new rule —")]
+
+        selected_rule_label = st.selectbox(
+            _t("Select Rule to Edit"), rule_options, key="rule_sel"
+        )
+
+        # Pre-fill form fields from selected rule
+        editing_rule = None
+        if selected_rule_label != _t("— new rule —") and not rules_df.empty:
+            try:
+                rule_id_str = selected_rule_label.split("]")[0].lstrip("[")
+                editing_rule = rules_df[rules_df["id"] == int(rule_id_str)].iloc[0]
+            except Exception:
+                editing_rule = None
+
+        # ── Edit form ─────────────────────────────────────
+        with st.form("rule_form", clear_on_submit=False):
+            rc1, rc2 = st.columns(2)
+            with rc1:
+                rule_category = st.text_input(
+                    _t("Category *"),
+                    value=editing_rule["category"] if editing_rule is not None else "",
+                )
+                rule_incident = st.text_input(
+                    _t("Incident Name *"),
+                    value=editing_rule["incident"] if editing_rule is not None else "",
+                )
+                rule_reset = st.number_input(
+                    _t("Reset Window (days)"),
+                    min_value=1,
+                    value=int(editing_rule["reset_days"]) if editing_rule is not None else 90,
+                )
+            with rc2:
+                rule_desc = st.text_area(
+                    _t("Description"),
+                    value=editing_rule["description"] if editing_rule is not None else "",
+                    height=80,
+                )
+                rule_hr_note = st.text_area(
+                    _t("HR Note"),
+                    value=editing_rule["hr_note"] if editing_rule is not None else "",
+                    height=80,
+                )
+                default_esc = (
+                    ", ".join(json.loads(editing_rule["escalation_json"]))
+                    if editing_rule is not None
+                    else "Yellow, Orange, Red, Black, Investigation"
+                )
+                rule_esc_str = st.text_input(
+                    _t("Escalation Steps (comma-separated)"),
+                    value=default_esc,
+                    placeholder=_t("e.g. Yellow,Yellow,Orange,Red,Black,Investigation"),
+                )
+
+            do_save = st.form_submit_button(_t("💾 Save Rule"), use_container_width=True)
+
+        if do_save:
+            errors: list[str] = []
+            if not rule_category.strip():
+                errors.append(_t("⚠️ Category and Incident Name are required."))
+            if not rule_incident.strip():
+                errors.append(_t("⚠️ Category and Incident Name are required."))
+
+            valid_colors = {"Yellow", "Orange", "Red", "Black", "Investigation"}
+            esc_steps = [s.strip() for s in rule_esc_str.split(",") if s.strip()]
+            invalid = [s for s in esc_steps if s not in valid_colors]
+            if invalid:
+                errors.append(_t("⚠️ Invalid escalation steps. Use colors: Yellow, Orange, Red, Black, Investigation"))
+
+            if errors:
+                for e in errors:
+                    st.error(e)
+            else:
+                save_rule(
+                    rule_category.strip(),
+                    rule_incident.strip(),
+                    rule_desc.strip(),
+                    rule_hr_note.strip(),
+                    int(rule_reset),
+                    esc_steps,
+                    rule_id=int(editing_rule["id"]) if editing_rule is not None else None,
+                )
+                st.success(_t("✅ Rule saved."))
+                st.rerun()
+
+        # ── Delete rule ───────────────────────────────────
+        if editing_rule is not None:
+            st.divider()
+            confirm_del_rule = st.checkbox(
+                _t("I confirm I want to permanently delete this rule"),
+                key="confirm_del_rule",
+            )
+            if st.button(
+                _t("🗑️ Delete Rule"), key="del_rule_btn", disabled=not confirm_del_rule
+            ):
+                delete_rule(int(editing_rule["id"]))
+                st.success(_t("✅ Rule deleted."))
+                st.rerun()
