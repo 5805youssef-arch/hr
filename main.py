@@ -2321,6 +2321,7 @@ with tab_rules:
                 for _e in _errors:
                     st.error(f"⚠️ {_e}")
             else:
+                
                 save_rule(
                     category=_r_category.strip(),
                     incident=_r_incident.strip(),
