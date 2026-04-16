@@ -1,10 +1,25 @@
 const BASE = "/api";
+const AUTH_KEY = "hr_auth";
+
+export const auth = {
+  get: () => localStorage.getItem(AUTH_KEY),
+  set: (username, password) => {
+    localStorage.setItem(AUTH_KEY, btoa(`${username}:${password}`));
+  },
+  clear: () => localStorage.removeItem(AUTH_KEY),
+};
 
 async function req(path, opts = {}) {
-  const res = await fetch(BASE + path, {
-    headers: { "Content-Type": "application/json" },
-    ...opts,
-  });
+  const headers = { "Content-Type": "application/json", ...(opts.headers || {}) };
+  const token = auth.get();
+  if (token) headers.Authorization = `Basic ${token}`;
+
+  const res = await fetch(BASE + path, { ...opts, headers });
+  if (res.status === 401) {
+    auth.clear();
+    window.dispatchEvent(new Event("hr-logout"));
+    throw new Error("Unauthorized");
+  }
   if (!res.ok) {
     const text = await res.text().catch(() => "");
     throw new Error(`${res.status}: ${text}`);
@@ -14,6 +29,18 @@ async function req(path, opts = {}) {
 }
 
 export const api = {
+  login: (username, password) => {
+    const token = btoa(`${username}:${password}`);
+    return fetch(`${BASE}/auth/check`, {
+      headers: { Authorization: `Basic ${token}` },
+    }).then((r) => {
+      if (!r.ok) throw new Error("Invalid credentials");
+      auth.set(username, password);
+      return r.json();
+    });
+  },
+  logout: () => auth.clear(),
+
   listEmployees: () => req("/employees"),
   createEmployee: (data) => req("/employees", { method: "POST", body: JSON.stringify(data) }),
   deleteEmployee: (name) => req(`/employees/${encodeURIComponent(name)}`, { method: "DELETE" }),
@@ -34,10 +61,23 @@ export const api = {
   dashboard: () => req("/stats/dashboard"),
   matrix: () => req("/matrix"),
 
-  exportViolationsUrl: (filters = {}) => {
+  exportViolations: async (filters = {}) => {
     const qs = new URLSearchParams(
       Object.entries(filters).filter(([, v]) => v !== undefined && v !== null && v !== "")
     ).toString();
-    return `${BASE}/violations/export${qs ? `?${qs}` : ""}`;
+    const token = auth.get();
+    const res = await fetch(`${BASE}/violations/export${qs ? `?${qs}` : ""}`, {
+      headers: token ? { Authorization: `Basic ${token}` } : {},
+    });
+    if (!res.ok) throw new Error(`${res.status}: export failed`);
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `violations_${new Date().toISOString().slice(0, 10)}.xlsx`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
   },
 };

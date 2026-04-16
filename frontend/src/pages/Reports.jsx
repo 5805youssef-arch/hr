@@ -58,9 +58,9 @@ export default function Reports({ lang }) {
     return Object.entries(m).sort((a, b) => b[1] - a[1]).slice(0, 5);
   }, [rows]);
 
-  function exportExcel() {
-    const url = api.exportViolationsUrl(filters);
-    window.open(url, "_blank");
+  async function exportExcel() {
+    try { await api.exportViolations(filters); }
+    catch (e) { setErr(e.message); }
   }
 
   return (

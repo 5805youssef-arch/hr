@@ -1,8 +1,9 @@
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from .auth import require_admin
 from .db import init_db
 from .routers import employees, matrix, stats, violations
 
@@ -29,7 +30,13 @@ def health():
     return {"ok": True}
 
 
-app.include_router(employees.router, prefix="/api")
-app.include_router(violations.router, prefix="/api")
-app.include_router(stats.router, prefix="/api")
-app.include_router(matrix.router, prefix="/api")
+@app.get("/api/auth/check")
+def auth_check(user: str = Depends(require_admin)):
+    return {"user": user}
+
+
+_protected = [Depends(require_admin)]
+app.include_router(employees.router, prefix="/api", dependencies=_protected)
+app.include_router(violations.router, prefix="/api", dependencies=_protected)
+app.include_router(stats.router, prefix="/api", dependencies=_protected)
+app.include_router(matrix.router, prefix="/api", dependencies=_protected)

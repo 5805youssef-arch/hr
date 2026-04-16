@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { auth, api } from "./api";
 import { S } from "./tokens";
 import { L } from "./i18n";
 import { IC } from "./icons";
@@ -7,6 +8,7 @@ import Dashboard from "./pages/Dashboard";
 import LogViolation from "./pages/LogViolation";
 import Employees from "./pages/Employees";
 import Reports from "./pages/Reports";
+import Login from "./pages/Login";
 
 const PLACEHOLDERS = {
   set: { icon: IC.setBig, title: "comingSoon", sub: "comingSoonSub" },
@@ -16,10 +18,23 @@ export default function HRSystem() {
   const [lang, setLang] = useState("en");
   const [page, setPage] = useState("dash");
   const [collapsed, setCollapsed] = useState(false);
+  const [authed, setAuthed] = useState(!!auth.get());
+
+  useEffect(() => {
+    const h = () => setAuthed(false);
+    window.addEventListener("hr-logout", h);
+    return () => window.removeEventListener("hr-logout", h);
+  }, []);
 
   const ar = lang === "ar";
   const t = (k) => L[lang][k] || k;
   const sw = collapsed ? 68 : 256;
+
+  if (!authed) {
+    return <Login lang={lang} onSuccess={() => setAuthed(true)} />;
+  }
+
+  const logout = () => { api.logout(); setAuthed(false); };
 
   const navs = [
     { id: "dash", icon: IC.dash },
@@ -71,6 +86,7 @@ export default function HRSystem() {
           <div style={{ width: 32, height: 32, borderRadius: "50%", flexShrink: 0, background: `linear-gradient(135deg,${S.pri},${S.acc})`, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 12, fontWeight: 700 }}>{ar ? "\u0623" : "A"}</div>
           <span style={{ fontSize: 13, fontWeight: 600, color: S.g700 }}>{ar ? "\u0623\u0645\u064A\u0646" : "Amin"}</span>
         </div>
+        <button onClick={logout} title={ar ? "\u062E\u0631\u0648\u062C" : "Logout"} style={{ width: 36, height: 36, borderRadius: S.r2, border: `1px solid ${S.g200}`, background: S.w, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: S.g400, fontSize: 14, fontFamily: "inherit" }}>{"\u23FB"}</button>
       </div>
     </header>
   );
