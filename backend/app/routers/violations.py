@@ -1,7 +1,10 @@
+import io
 from datetime import datetime, timedelta
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Query
+from fastapi.responses import StreamingResponse
+from openpyxl import Workbook
 
 from ..db import db
 from ..penalties import MATRIX_DATA, PENALTY_MAP
@@ -115,3 +118,39 @@ def preview_next(employee_name: str = Query(...), category: str = Query(...), in
     color = _next_penalty(employee_name, category, incident)
     meta = MATRIX_DATA[category][incident]
     return {"penalty_color": color, "penalty": PENALTY_MAP[color], "escalation": meta["escalation"], "reset": meta["reset"]}
+
+
+@router.get("/export")
+def export_violations(
+    employee: Optional[str] = None,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    incident: Optional[str] = None,
+    penalty: Optional[str] = None,
+):
+    rows = list_violations(employee, date_from, date_to, incident, penalty)
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Violations"
+    headers = [
+        "ID", "Employee", "Category", "Incident", "Penalty Color", "Penalty Label",
+        "Deduction Hours", "Deduction Days", "Freeze Months", "Comment",
+        "Submitted By", "Created At",
+    ]
+    ws.append(headers)
+    for r in rows:
+        ws.append([
+            r["id"], r["employee_name"], r["category"], r["incident"],
+            r["penalty_color"], r["penalty_label"],
+            r["deduction_hours"], r["deduction_days"], r["freeze_months"],
+            r["comment"], r["submitted_by"], r["created_at"],
+        ])
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    filename = f"violations_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+    return StreamingResponse(
+        buf,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )

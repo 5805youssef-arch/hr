@@ -33,4 +33,11 @@ export const api = {
 
   dashboard: () => req("/stats/dashboard"),
   matrix: () => req("/matrix"),
+
+  exportViolationsUrl: (filters = {}) => {
+    const qs = new URLSearchParams(
+      Object.entries(filters).filter(([, v]) => v !== undefined && v !== null && v !== "")
+    ).toString();
+    return `${BASE}/violations/export${qs ? `?${qs}` : ""}`;
+  },
 };

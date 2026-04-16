@@ -6,9 +6,9 @@ import { Card, Empty } from "./components";
 import Dashboard from "./pages/Dashboard";
 import LogViolation from "./pages/LogViolation";
 import Employees from "./pages/Employees";
+import Reports from "./pages/Reports";
 
 const PLACEHOLDERS = {
-  rep: { icon: IC.rep, title: "rep" },
   set: { icon: IC.setBig, title: "comingSoon", sub: "comingSoonSub" },
 };
 
@@ -82,6 +82,8 @@ export default function HRSystem() {
     content = <LogViolation lang={lang} />;
   } else if (page === "emp") {
     content = <Employees lang={lang} />;
+  } else if (page === "rep") {
+    content = <Reports lang={lang} />;
   } else {
     const p = PLACEHOLDERS[page];
     content = (
