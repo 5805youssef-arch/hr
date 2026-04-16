@@ -1,0 +1,1411 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>HR Disciplinary System — Travel Gate KSA</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Noto+Sans+Arabic:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --pri:#2FB89E;--priD:#1F9A82;--priL:#E8F8F4;--priM:#B4E8DA;
+  --acc:#E8825C;--accD:#C96A45;--accL:#FFF1EB;
+  --w:#FFFFFF;--g50:#F7F9FA;--g100:#EEF1F4;--g200:#DEE3E8;
+  --g300:#C5CDD5;--g400:#94A0AD;--g500:#657080;--g600:#475569;
+  --g700:#2C3A4A;--g800:#1A2332;
+  --ok:#16A34A;--okL:#F0FDF4;--warn:#E59E0B;--warnL:#FFFBEB;
+  --err:#DC2626;--errL:#FEF2F2;--info:#2563EB;--infoL:#EFF6FF;
+  --pY:#EAB308;--pYB:#FEFCE8;--pO:#F97316;--pOB:#FFF7ED;
+  --pR:#EF4444;--pRB:#FEF2F2;--pK:#374151;--pKB:#F3F4F6;
+  --pI:#7C3AED;--pIB:#F5F3FF;
+  --sh1:0 1px 3px rgba(0,0,0,0.04);--sh2:0 4px 12px rgba(0,0,0,0.06);--sh3:0 10px 24px rgba(0,0,0,0.08);
+  --r1:6px;--r2:10px;--r3:14px;--rF:100px;
+  --sw:252px;
+}
+body{font-family:'DM Sans','Segoe UI',sans-serif;background:var(--g50);color:var(--g700);min-height:100vh}
+body.rtl{direction:rtl;font-family:'Noto Sans Arabic','Segoe UI',sans-serif}
+
+/* ── SIDEBAR ── */
+#sidebar{
+  position:fixed;top:0;left:0;width:var(--sw);height:100vh;
+  background:var(--w);border-right:1px solid var(--g100);
+  display:flex;flex-direction:column;
+  transition:width 0.2s ease;z-index:100;
+  box-shadow:1px 0 8px rgba(0,0,0,0.03);
+}
+body.rtl #sidebar{left:auto;right:0;border-right:none;border-left:1px solid var(--g100)}
+#sidebar.collapsed{width:68px}
+.logo-area{
+  padding:20px 22px;border-bottom:1px solid var(--g100);
+  display:flex;align-items:center;gap:12px;min-height:68px;
+}
+#sidebar.collapsed .logo-area{padding:20px 14px;justify-content:center}
+.logo-icon{
+  width:38px;height:38px;border-radius:var(--r2);flex-shrink:0;
+  background:linear-gradient(135deg,var(--pri),var(--priD));
+  display:flex;align-items:center;justify-content:center;
+  color:#fff;font-size:14px;font-weight:800;letter-spacing:-0.5px;
+}
+.logo-text{overflow:hidden}
+.logo-text .t1{font-size:15px;font-weight:700;color:var(--g800);white-space:nowrap}
+.logo-text .t2{font-size:11px;color:var(--g400);white-space:nowrap}
+#sidebar.collapsed .logo-text{display:none}
+nav#main-nav{flex:1;padding:14px 10px;display:flex;flex-direction:column;gap:2px;overflow-y:auto}
+.nav-btn{
+  display:flex;align-items:center;gap:11px;padding:10px 14px;
+  border-radius:var(--r2);border:none;cursor:pointer;
+  background:transparent;color:var(--g500);
+  font-weight:500;font-size:13.5px;
+  transition:all 0.12s;width:100%;text-align:left;
+  font-family:inherit;position:relative;
+}
+body.rtl .nav-btn{text-align:right;justify-content:flex-start}
+#sidebar.collapsed .nav-btn{padding:11px;justify-content:center}
+.nav-btn:hover{background:var(--g50);color:var(--g700)}
+.nav-btn.active{background:var(--priL);color:var(--priD);font-weight:600}
+.nav-btn.active::before{
+  content:'';position:absolute;left:0;top:50%;transform:translateY(-50%);
+  width:3px;height:22px;border-radius:2px;background:var(--pri);
+}
+body.rtl .nav-btn.active::before{left:auto;right:0}
+.nav-btn .nav-label{white-space:nowrap}
+#sidebar.collapsed .nav-label{display:none}
+.collapse-btn-wrap{padding:10px;border-top:1px solid var(--g100)}
+.collapse-btn{
+  width:100%;padding:9px;border-radius:var(--r2);
+  border:1px solid var(--g200);background:var(--w);
+  cursor:pointer;display:flex;align-items:center;justify-content:center;
+  color:var(--g400);transition:all 0.12s;
+}
+.collapse-btn:hover{background:var(--g50)}
+
+/* ── MAIN ── */
+#main{margin-left:var(--sw);transition:margin 0.2s ease;min-height:100vh}
+body.rtl #main{margin-left:0;margin-right:var(--sw)}
+#main.expanded{margin-left:68px}
+body.rtl #main.expanded{margin-left:0;margin-right:68px}
+header#topbar{
+  height:60px;background:var(--w);border-bottom:1px solid var(--g100);
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 28px;position:sticky;top:0;z-index:50;
+  box-shadow:var(--sh1);
+}
+#topbar h1{font-size:17px;font-weight:700;color:var(--g800)}
+.topbar-right{display:flex;align-items:center;gap:10px}
+.lang-btn{
+  display:flex;align-items:center;gap:5px;padding:6px 14px;
+  border-radius:var(--rF);border:1px solid var(--g200);background:var(--w);
+  cursor:pointer;font-size:12.5px;color:var(--g600);font-weight:500;
+  font-family:inherit;transition:all 0.12s;
+}
+.lang-btn:hover{background:var(--g50)}
+.notif-btn{
+  width:36px;height:36px;border-radius:var(--r2);
+  border:1px solid var(--g200);background:var(--w);
+  cursor:pointer;display:flex;align-items:center;justify-content:center;
+  position:relative;
+}
+.notif-dot{
+  position:absolute;top:5px;right:5px;width:7px;height:7px;
+  border-radius:50%;background:var(--err);border:2px solid white;
+}
+.user-pill{display:flex;align-items:center;gap:8px;padding:3px 6px;cursor:pointer}
+.avatar{
+  width:32px;height:32px;border-radius:50%;
+  background:linear-gradient(135deg,var(--pri),var(--acc));
+  display:flex;align-items:center;justify-content:center;
+  color:#fff;font-size:12px;font-weight:700;
+}
+.user-name{font-size:13px;font-weight:600;color:var(--g700)}
+#content{padding:24px 28px}
+
+/* ── PAGE SECTIONS ── */
+.page{display:none;flex-direction:column;gap:22px}
+.page.active{display:flex}
+.page-title{font-size:20px;font-weight:800;color:var(--g800)}
+
+/* ── CARD ── */
+.card{
+  background:var(--w);border-radius:var(--r3);
+  border:1px solid var(--g200);padding:24px;
+  box-shadow:var(--sh1);
+}
+.card-no-pad{padding:0}
+
+/* ── BUTTONS ── */
+.btn{
+  display:inline-flex;align-items:center;gap:6px;padding:9px 18px;
+  border-radius:var(--r2);border:none;cursor:pointer;
+  font-size:13px;font-weight:600;transition:all 0.15s;
+  font-family:inherit;white-space:nowrap;
+}
+.btn-pri{background:var(--pri);color:#fff}
+.btn-pri:hover{background:var(--priD)}
+.btn-sec{background:var(--w);color:var(--g700);border:1px solid var(--g200)}
+.btn-sec:hover{background:var(--g50)}
+.btn-acc{background:var(--acc);color:#fff}
+.btn-acc:hover{background:var(--accD)}
+.btn-dan{background:var(--errL);color:var(--err);border:1px solid rgba(220,38,38,0.3)}
+.btn-dan:hover{background:#FEE2E2}
+.btn-ghost{background:transparent;color:var(--g500);border:none}
+.btn-ghost:hover{background:var(--g50)}
+.btn-sm{padding:4px 10px;font-size:12px}
+.btn-full{width:100%;justify-content:center;padding:12px 20px;font-size:14px}
+
+/* ── BADGES ── */
+.pb{
+  display:inline-flex;align-items:center;gap:4px;
+  border-radius:var(--rF);font-weight:600;white-space:nowrap;
+}
+.pb-sm{padding:2px 8px;font-size:11px}
+.pb-lg{padding:4px 12px;font-size:12px}
+.pb-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.pb-yellow{background:var(--pYB);color:#92400E;border:1px solid rgba(234,179,8,0.3)}
+.pb-yellow .pb-dot{background:var(--pY)}
+.pb-orange{background:var(--pOB);color:#9A3412;border:1px solid rgba(249,115,22,0.3)}
+.pb-orange .pb-dot{background:var(--pO)}
+.pb-red{background:var(--pRB);color:#DC2626;border:1px solid rgba(239,68,68,0.3)}
+.pb-red .pb-dot{background:var(--pR)}
+.pb-black{background:var(--pKB);color:#1F2937;border:1px solid rgba(55,65,81,0.3)}
+.pb-black .pb-dot{background:var(--pK)}
+.pb-investigation{background:var(--pIB);color:#5B21B6;border:1px solid rgba(124,58,237,0.3)}
+.pb-investigation .pb-dot{background:var(--pI)}
+
+.status-badge{
+  display:inline-flex;align-items:center;gap:4px;
+  padding:3px 10px;border-radius:var(--rF);font-size:11px;font-weight:600;
+}
+.status-active{background:var(--okL);color:var(--ok)}
+.status-frozen{background:var(--errL);color:var(--err)}
+.status-dot{width:5px;height:5px;border-radius:50%}
+.status-active .status-dot{background:var(--ok)}
+.status-frozen .status-dot{background:var(--err)}
+
+/* ── KPI CARDS ── */
+.kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:18px}
+.kpi-icon{
+  width:44px;height:44px;border-radius:var(--r2);
+  display:flex;align-items:center;justify-content:center;
+}
+.kpi-val{font-size:30px;font-weight:800;color:var(--g800);line-height:1}
+.kpi-label{font-size:13px;color:var(--g400);margin-top:5px;font-weight:500}
+.kpi-sub{font-size:12px;color:var(--g400);border-top:1px solid var(--g100);padding-top:10px;margin-top:14px}
+.kpi-trend{font-size:12px;font-weight:700;display:flex;align-items:center;gap:2px}
+.trend-up{color:var(--err)}
+.trend-dn{color:var(--ok)}
+
+/* ── TABLES ── */
+.tbl-wrap{overflow-x:auto;border-radius:var(--r2);border:1px solid var(--g200)}
+table{width:100%;border-collapse:collapse;font-size:12.5px}
+thead tr{background:var(--g50)}
+th{
+  padding:10px 14px;font-weight:600;color:var(--g400);
+  font-size:11px;text-transform:uppercase;letter-spacing:0.05em;
+  border-bottom:1px solid var(--g200);white-space:nowrap;
+  text-align:left;
+}
+body.rtl th{text-align:right}
+td{padding:10px 14px;border-bottom:1px solid var(--g100)}
+tbody tr:hover{background:var(--g50)}
+thead tr.th2 th{border-bottom:2px solid var(--g200)}
+
+/* ── FORMS ── */
+.form-group{display:flex;flex-direction:column;gap:6px}
+.form-label{font-size:13px;font-weight:600;color:var(--g600)}
+.form-label-sm{font-size:12px;font-weight:600;color:var(--g500)}
+.form-input,.form-select,.form-textarea{
+  padding:10px 14px;border-radius:var(--r2);border:1px solid var(--g200);
+  font-size:13.5px;color:var(--g700);font-family:inherit;outline:none;
+  background:var(--w);transition:border 0.12s;
+}
+.form-input:focus,.form-select:focus,.form-textarea:focus{border-color:var(--pri);box-shadow:0 0 0 3px rgba(47,184,158,0.1)}
+.form-textarea{resize:vertical}
+.form-select{cursor:pointer}
+.form-input-sm{padding:9px 12px;border-radius:var(--r1);font-size:13px}
+
+/* ── GRID HELPERS ── */
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.grid-2-form{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+.grid-4-form{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:14px}
+.grid-report-form{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+.grid-log{display:grid;grid-template-columns:1fr 340px;gap:20px}
+
+/* ── CHARTS ── */
+.chart-area{position:relative;height:220px}
+.chart-legend{display:flex;justify-content:center;gap:16px;margin-top:8px;flex-wrap:wrap}
+.legend-item{display:flex;align-items:center;gap:5px;font-size:11.5px;color:var(--g500)}
+.legend-dot{width:8px;height:8px;border-radius:50%}
+
+/* ── RULES PAGE ── */
+.rule-tabs{display:flex;gap:8px;flex-wrap:wrap}
+.rule-tab{
+  padding:8px 18px;border-radius:var(--rF);font-size:13px;font-weight:600;
+  cursor:pointer;font-family:inherit;transition:all 0.15s;
+  border:1px solid var(--g200);background:var(--w);color:var(--g600);
+}
+.rule-tab.active{background:var(--pri);color:#fff;border-color:var(--pri)}
+.rule-tab:hover:not(.active){background:var(--g50)}
+
+/* ── DESIGN SYSTEM ── */
+.color-swatch{display:flex;flex-direction:column;align-items:center;gap:6px}
+.swatch-box{width:56px;height:56px;border-radius:var(--r2);border:1px solid var(--g200);box-shadow:var(--sh1)}
+.swatch-name{font-size:11px;font-weight:600;color:var(--g600)}
+.swatch-hex{font-size:10px;color:var(--g400);font-family:monospace}
+.ds-sec-title{font-size:13px;font-weight:600;color:var(--g500);text-transform:uppercase;letter-spacing:0.05em;margin:0 0 12px}
+.ds-colors{display:flex;gap:20px;flex-wrap:wrap;margin-bottom:24px}
+.ds-typo-row{
+  display:flex;align-items:baseline;justify-content:space-between;
+  padding:10px 0;border-bottom:1px solid var(--g100);
+}
+.ds-typo-label{font-size:12px;color:var(--g400);font-family:monospace}
+
+/* ── PENALTY DIST BARS ── */
+.pen-dist-row{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.pen-dist-bar-bg{flex:1;height:7px;background:var(--g100);border-radius:4px;overflow:hidden}
+.pen-dist-bar{height:100%;border-radius:4px;transition:width 0.6s ease}
+.pen-dist-val{font-size:13px;font-weight:700;color:var(--g700);min-width:18px;text-align:center}
+
+/* ── GUIDE CARDS ── */
+.guide-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}
+.guide-card{
+  background:var(--w);border-radius:var(--r2);padding:14px;
+  text-align:center;border:1px solid var(--g200);
+}
+.guide-icon{font-size:24px;margin-bottom:6px}
+.guide-name{font-size:11px;color:var(--g500);margin-top:6px}
+.guide-ded{font-size:12px;font-weight:700;color:var(--g700);margin-top:4px}
+
+/* ── ESC PATH ── */
+.esc-step{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.esc-num{
+  width:22px;height:22px;border-radius:50%;
+  background:var(--w);border:1.5px solid var(--g200);
+  display:flex;align-items:center;justify-content:center;
+  font-size:10px;font-weight:700;color:var(--g500);flex-shrink:0;
+}
+
+/* ── MISC ── */
+.flex-between{display:flex;justify-content:space-between;align-items:center}
+.flex-center{display:flex;align-items:center}
+.gap-8{gap:8px}
+.gap-10{gap:10px}
+.flex-col{display:flex;flex-direction:column;gap:14px}
+.upload-area{
+  display:flex;align-items:center;gap:10px;padding:12px 16px;
+  border-radius:var(--r2);border:1px dashed var(--g300);cursor:pointer;background:var(--g50);
+}
+.force-inv{
+  display:flex;align-items:center;gap:12px;padding:12px 16px;
+  border-radius:var(--r2);background:var(--errL);border:1px solid rgba(220,38,38,0.2);
+}
+.info-badge{background:var(--infoL);color:var(--info);padding:3px 10px;border-radius:var(--rF);font-size:12px;font-weight:600}
+.search-wrap{position:relative;display:inline-block}
+.search-wrap input{padding-left:34px}
+.search-wrap svg{position:absolute;left:10px;top:50%;transform:translateY(-50%);pointer-events:none}
+body.rtl .search-wrap input{padding-left:14px;padding-right:34px}
+body.rtl .search-wrap svg{left:auto;right:10px}
+.settings-placeholder{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  padding:60px 0;color:var(--g400);
+}
+.settings-placeholder p{margin-top:16px;font-size:15px;font-weight:500}
+.settings-placeholder p.sub{font-size:13px;color:var(--g400);margin-top:4px}
+.hidden{display:none}
+
+/* SVG icons color helpers */
+svg.icon-pri{stroke:var(--pri)}
+svg.icon-g4{stroke:var(--g400)}
+svg.icon-g5{stroke:var(--g500)}
+svg.icon-err{stroke:var(--err)}
+svg.icon-warn{stroke:var(--warn)}
+svg.icon-ok{stroke:var(--ok)}
+svg.icon-info{stroke:var(--info)}
+svg.icon-w{stroke:#fff}
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════════════ SIDEBAR ══════════════════════════════ -->
+<aside id="sidebar">
+  <div class="logo-area">
+    <div class="logo-icon">TG</div>
+    <div class="logo-text">
+      <div class="t1">Travel Gate</div>
+      <div class="t2" id="sidebar-subtitle">HR Disciplinary System</div>
+    </div>
+  </div>
+  <nav id="main-nav">
+    <button class="nav-btn active" data-page="dash">
+      <svg class="icon" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+      <span class="nav-label" data-i18n="dash">Dashboard</span>
+    </button>
+    <button class="nav-btn" data-page="log">
+      <svg class="icon" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      <span class="nav-label" data-i18n="log">Log Violation</span>
+    </button>
+    <button class="nav-btn" data-page="emp">
+      <svg class="icon" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
+      <span class="nav-label" data-i18n="emp">Employees</span>
+    </button>
+    <button class="nav-btn" data-page="rep">
+      <svg class="icon" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+      <span class="nav-label" data-i18n="rep">Reports</span>
+    </button>
+    <button class="nav-btn" data-page="rules">
+      <svg class="icon" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+      <span class="nav-label" data-i18n="rules">Rules Matrix</span>
+    </button>
+    <button class="nav-btn" data-page="ds">
+      <svg class="icon" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="10.5" r="2.5" fill="none"/><circle cx="8.5" cy="7.5" r="2.5" fill="none"/><circle cx="6.5" cy="12.5" r="2.5" fill="none"/><path d="M12 22C6.5 22 2 17.5 2 12S6.5 2 12 2s10 4.5 10 10c0 2-1 3-3 3h-1.5c-1 0-2 1-2 2s1 2 2 2h1"/></svg>
+      <span class="nav-label" data-i18n="designSys">Design System</span>
+    </button>
+    <button class="nav-btn" data-page="set">
+      <svg class="icon" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+      <span class="nav-label" data-i18n="set">Settings</span>
+    </button>
+  </nav>
+  <div class="collapse-btn-wrap">
+    <button class="collapse-btn" id="collapse-btn">
+      <svg id="collapse-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+    </button>
+  </div>
+</aside>
+
+<!-- ══════════════════════════════ MAIN ══════════════════════════════ -->
+<div id="main">
+  <header id="topbar">
+    <h1 id="page-title">Dashboard</h1>
+    <div class="topbar-right">
+      <button class="lang-btn" id="lang-btn">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg>
+        <span id="lang-label">العربية</span>
+      </button>
+      <button class="notif-btn">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
+        <span class="notif-dot"></span>
+      </button>
+      <div class="user-pill">
+        <div class="avatar" id="topbar-avatar">A</div>
+        <span class="user-name" id="topbar-username">Amin</span>
+      </div>
+    </div>
+  </header>
+
+  <div id="content">
+
+    <!-- ══ DASHBOARD ══ -->
+    <section class="page active" id="page-dash">
+      <div class="flex-between">
+        <div>
+          <h2 style="font-size:22px;font-weight:800;color:var(--g800)"><span data-i18n="welcome">Welcome back</span>, <span id="dash-name">Amin</span></h2>
+          <p style="font-size:13.5px;color:var(--g400);margin-top:3px" data-i18n="todayAct">Today's activity summary</p>
+        </div>
+        <div class="flex-center gap-8">
+          <button class="btn btn-pri" onclick="goPage('log')">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            <span data-i18n="newV">New Violation</span>
+          </button>
+          <button class="btn btn-sec">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            <span data-i18n="export">Export Excel</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="kpi-grid">
+        <div class="card" style="display:flex;flex-direction:column;gap:14px">
+          <div class="flex-between">
+            <div class="kpi-icon" style="background:rgba(232,130,92,0.07)"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--acc)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div>
+            <span class="kpi-trend trend-up"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--err)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>12%</span>
+          </div>
+          <div><div class="kpi-val">28</div><div class="kpi-label" data-i18n="totV">Total Violations</div></div>
+          <div class="kpi-sub"><span data-i18n-attr="dash-kpi1-sub">+3 this month</span></div>
+        </div>
+        <div class="card" style="display:flex;flex-direction:column;gap:14px">
+          <div class="flex-between">
+            <div class="kpi-icon" style="background:rgba(47,184,158,0.07)"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--pri)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg></div>
+          </div>
+          <div><div class="kpi-val">6</div><div class="kpi-label" data-i18n="totE">Employees</div></div>
+          <div class="kpi-sub"><span data-i18n-attr="dash-kpi2-sub">3 departments</span></div>
+        </div>
+        <div class="card" style="display:flex;flex-direction:column;gap:14px">
+          <div class="flex-between">
+            <div class="kpi-icon" style="background:rgba(229,158,11,0.07)"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--warn)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
+            <span class="kpi-trend trend-dn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--ok)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/></svg>8%</span>
+          </div>
+          <div><div class="kpi-val">14.5</div><div class="kpi-label" data-i18n="totD">Deduction Days</div></div>
+          <div class="kpi-sub"><span data-i18n-attr="dash-kpi3-sub">total deduction days</span></div>
+        </div>
+        <div class="card" style="display:flex;flex-direction:column;gap:14px">
+          <div class="flex-between">
+            <div class="kpi-icon" style="background:rgba(220,38,38,0.07)"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--err)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div>
+          </div>
+          <div><div class="kpi-val">2</div><div class="kpi-label" data-i18n="actF">Active Freezes</div></div>
+          <div class="kpi-sub"><span data-i18n-attr="dash-kpi4-sub">active promotion freezes</span></div>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <h3 style="font-size:15px;font-weight:700;color:var(--g800);margin-bottom:16px" data-i18n="trend">Monthly Trend</h3>
+          <div class="chart-area"><canvas id="chart-trend"></canvas></div>
+        </div>
+        <div class="card">
+          <h3 style="font-size:15px;font-weight:700;color:var(--g800);margin-bottom:16px" data-i18n="byCat">By Category</h3>
+          <div class="chart-area"><canvas id="chart-cat"></canvas></div>
+          <div class="chart-legend" id="cat-legend"></div>
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:320px 1fr;gap:18px">
+        <div class="card">
+          <h3 style="font-size:15px;font-weight:700;color:var(--g800);margin-bottom:18px" data-i18n="penDist">Penalty Distribution</h3>
+          <div id="pen-dist"></div>
+        </div>
+        <div class="card">
+          <div class="flex-between" style="margin-bottom:14px">
+            <h3 style="font-size:15px;font-weight:700;color:var(--g800)" data-i18n="recent">Recent Violations</h3>
+            <button class="btn btn-ghost btn-sm" onclick="goPage('rep')"><span data-i18n="viewAll">View All</span> →</button>
+          </div>
+          <div class="tbl-wrap">
+            <table>
+              <thead><tr id="recent-thead"></tr></thead>
+              <tbody id="recent-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══ LOG VIOLATION ══ -->
+    <section class="page" id="page-log">
+      <div class="flex-between">
+        <h2 class="page-title" data-i18n="regV">Register New Violation</h2>
+        <button class="btn btn-sec" id="guide-toggle-btn">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+          <span data-i18n="pGuide">Penalties Guide</span>
+        </button>
+      </div>
+
+      <div class="card hidden" id="guide-panel" style="background:var(--priL);border:1px solid var(--priM)">
+        <h4 style="margin-bottom:12px;color:var(--priD);font-size:14px" data-i18n="pGuide">Penalties Guide</h4>
+        <div class="guide-grid" id="guide-grid"></div>
+      </div>
+
+      <div class="grid-log">
+        <div class="card">
+          <div class="grid-2-form" style="margin-bottom:20px">
+            <div class="form-group">
+              <label class="form-label" data-i18n="vCat">Violation Category</label>
+              <select class="form-select" id="log-cat-select" onchange="updateLogCat()">
+                <option value="Attendance">Attendance</option>
+                <option value="Personal Attitude">Personal Attitude</option>
+                <option value="Abusing">Abusing</option>
+                <option value="Policy Violations">Policy Violations</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label" data-i18n="incType">Incident Type</label>
+              <select class="form-select" id="log-inc-select"></select>
+            </div>
+          </div>
+          <div class="grid-2-form" style="margin-bottom:20px">
+            <div class="form-group">
+              <label class="form-label" data-i18n="employee">Employee *</label>
+              <select class="form-select" id="log-emp-select"></select>
+            </div>
+            <div class="form-group">
+              <label class="form-label" data-i18n="hrRep">HR Representative *</label>
+              <input class="form-input" id="log-hr-input" placeholder="HR rep name"/>
+            </div>
+          </div>
+          <div class="form-group" style="margin-bottom:20px">
+            <label class="form-label" data-i18n="comments">Comments</label>
+            <textarea class="form-input form-textarea" rows="3" placeholder="Additional notes..."></textarea>
+          </div>
+          <div class="grid-2-form" style="margin-bottom:20px">
+            <div class="upload-area">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--g400)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+              <span style="font-size:13px;color:var(--g500)" data-i18n="proof">Attach Proof</span>
+            </div>
+            <div class="form-group">
+              <label class="form-label" data-i18n="dedOver">Deduction Override</label>
+              <input class="form-input" type="number" value="-1" step="0.5"/>
+            </div>
+          </div>
+          <div class="force-inv" style="margin-bottom:20px">
+            <input type="checkbox" style="width:16px;height:16px;accent-color:var(--err)"/>
+            <label style="font-size:13px;font-weight:600;color:var(--err)" data-i18n="forceInv">Force Investigation</label>
+          </div>
+          <button class="btn btn-pri btn-full">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            <span data-i18n="submit">Submit &amp; Notify</span>
+          </button>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:16px">
+          <div class="card" style="background:var(--infoL);border:1px solid rgba(37,99,235,0.2)">
+            <h4 style="margin-bottom:10px;color:var(--info);font-size:14px;display:flex;align-items:center;gap:6px">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--info)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+              <span data-i18n="escPath">Escalation Path</span>
+            </h4>
+            <div id="esc-path-steps"></div>
+          </div>
+          <div class="card">
+            <h4 style="margin-bottom:8px;font-size:14px;font-weight:700;color:var(--g800)" data-i18n="details">Details</h4>
+            <div style="display:flex;flex-direction:column;gap:0">
+              <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--g100)">
+                <span style="font-size:12.5px;color:var(--g400)" data-i18n="reset">Reset Window</span>
+                <span style="font-size:13px;font-weight:600;color:var(--g700)" id="esc-reset-val">30 days</span>
+              </div>
+              <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--g100)">
+                <span style="font-size:12.5px;color:var(--g400)" data-i18n="maxS">Max Steps</span>
+                <span style="font-size:13px;font-weight:600;color:var(--g700)" id="esc-steps-val">6 Step</span>
+              </div>
+              <div style="display:flex;justify-content:space-between;padding:8px 0">
+                <span style="font-size:12.5px;color:var(--g400)" data-i18n="cat">Category</span>
+                <span style="font-size:13px;font-weight:600;color:var(--g700)" id="esc-cat-val">Attendance</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══ EMPLOYEES ══ -->
+    <section class="page" id="page-emp">
+      <div class="flex-between">
+        <h2 class="page-title" data-i18n="emp">Employees</h2>
+        <div class="flex-center gap-8">
+          <div class="search-wrap">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--g400)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input class="form-input" placeholder="Search..." style="width:200px"/>
+          </div>
+          <button class="btn btn-pri" onclick="toggleAddEmp()">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            <span data-i18n="addEmp">Add Employee</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="card hidden" id="add-emp-panel" style="border:2px solid rgba(47,184,158,0.3)">
+        <h3 style="font-size:15px;font-weight:700;color:var(--g800);margin-bottom:16px" data-i18n="addEmp">Add Employee</h3>
+        <div class="grid-4-form" style="margin-bottom:16px">
+          <div class="form-group"><label class="form-label-sm" data-i18n="name">Full Name</label><input class="form-input form-input-sm"/></div>
+          <div class="form-group"><label class="form-label-sm" data-i18n="email">Email</label><input class="form-input form-input-sm"/></div>
+          <div class="form-group"><label class="form-label-sm" data-i18n="dept">Department</label><input class="form-input form-input-sm"/></div>
+          <div class="form-group"><label class="form-label-sm" data-i18n="mgrEmail">Manager Email</label><input class="form-input form-input-sm"/></div>
+        </div>
+        <div class="flex-center gap-8">
+          <button class="btn btn-pri"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><span data-i18n="save">Save</span></button>
+          <button class="btn btn-sec" onclick="toggleAddEmp()"><span data-i18n="cancel">Cancel</span></button>
+        </div>
+      </div>
+
+      <div class="card card-no-pad">
+        <div style="overflow-x:auto">
+          <table>
+            <thead><tr class="th2" id="emp-thead"></tr></thead>
+            <tbody id="emp-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══ REPORTS ══ -->
+    <section class="page" id="page-rep">
+      <div class="flex-between">
+        <h2 class="page-title" data-i18n="rep">Reports</h2>
+        <div class="flex-center gap-8">
+          <button class="btn btn-sec" onclick="toggleFilters()">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+            <span data-i18n="filters">Filters</span>
+          </button>
+          <button class="btn btn-pri">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            <span data-i18n="export">Export Excel</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="card" id="filter-panel" style="background:var(--g50);border:1px solid var(--g200)">
+        <div class="grid-report-form">
+          <div class="form-group">
+            <label class="form-label-sm" data-i18n="employee">Employee</label>
+            <select class="form-select form-input-sm" id="rep-emp-filter"></select>
+          </div>
+          <div class="form-group">
+            <label class="form-label-sm" data-i18n="from">From</label>
+            <input class="form-input form-input-sm" type="date"/>
+          </div>
+          <div class="form-group">
+            <label class="form-label-sm" data-i18n="to">To</label>
+            <input class="form-input form-input-sm" type="date"/>
+          </div>
+          <div class="form-group">
+            <label class="form-label-sm" data-i18n="penLvl">Penalty Level</label>
+            <select class="form-select form-input-sm">
+              <option value="">All</option>
+              <option>Yellow</option><option>Orange</option><option>Red</option><option>Black</option><option>Investigation</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="kpi-grid">
+        <div class="card" style="display:flex;flex-direction:column;gap:14px">
+          <div class="kpi-icon" style="background:rgba(232,130,92,0.07)"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--acc)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div>
+          <div><div class="kpi-val">28</div><div class="kpi-label" data-i18n="totV">Total Violations</div></div>
+        </div>
+        <div class="card" style="display:flex;flex-direction:column;gap:14px">
+          <div class="kpi-icon" style="background:rgba(47,184,158,0.07)"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--pri)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg></div>
+          <div><div class="kpi-val">6</div><div class="kpi-label" data-i18n="totE">Employees</div></div>
+        </div>
+        <div class="card" style="display:flex;flex-direction:column;gap:14px">
+          <div class="kpi-icon" style="background:rgba(229,158,11,0.07)"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--warn)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
+          <div><div class="kpi-val">14.5</div><div class="kpi-label" data-i18n="totD">Deduction Days</div></div>
+        </div>
+        <div class="card" style="display:flex;flex-direction:column;gap:14px">
+          <div class="kpi-icon" style="background:rgba(220,38,38,0.07)"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--err)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div>
+          <div><div class="kpi-val">2</div><div class="kpi-label" data-i18n="actF">Active Freezes</div></div>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <h3 style="font-size:14px;font-weight:700;color:var(--g800);margin-bottom:14px" data-i18n="penDist">Penalty Distribution</h3>
+          <div style="height:200px"><canvas id="chart-rep-pen"></canvas></div>
+        </div>
+        <div class="card">
+          <h3 style="font-size:14px;font-weight:700;color:var(--g800);margin-bottom:14px" data-i18n="topInc">Top Incidents</h3>
+          <div style="height:200px"><canvas id="chart-rep-top"></canvas></div>
+        </div>
+      </div>
+
+      <div class="card card-no-pad">
+        <div style="padding:16px 20px;border-bottom:1px solid var(--g100)">
+          <h3 style="font-size:15px;font-weight:700;color:var(--g800)" data-i18n="vHist">Violation History</h3>
+        </div>
+        <div style="overflow-x:auto">
+          <table>
+            <thead><tr class="th2" id="rep-thead"></tr></thead>
+            <tbody id="rep-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══ RULES MATRIX ══ -->
+    <section class="page" id="page-rules">
+      <h2 class="page-title" data-i18n="rules">Rules Matrix</h2>
+      <div class="rule-tabs" id="rule-tabs"></div>
+      <div class="card card-no-pad">
+        <div style="overflow-x:auto">
+          <table>
+            <thead><tr class="th2" id="rules-thead"></tr></thead>
+            <tbody id="rules-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══ DESIGN SYSTEM ══ -->
+    <section class="page" id="page-ds">
+      <div>
+        <h2 style="font-size:22px;font-weight:800;color:var(--g800);margin-bottom:4px" data-i18n="designSys">Design System</h2>
+        <p style="font-size:13.5px;color:var(--g400)" data-i18n="dsDesc">Complete design system for the HR Disciplinary System</p>
+      </div>
+
+      <div class="card">
+        <h3 style="font-size:16px;font-weight:700;color:var(--g800);margin-bottom:20px" data-i18n="colSettings">Color Palette</h3>
+        <p class="ds-sec-title" data-i18n="brandColors">Brand Colors</p>
+        <div class="ds-colors">
+          <div class="color-swatch"><div class="swatch-box" style="background:#2FB89E"></div><span class="swatch-name" data-i18n="primary">Primary</span><span class="swatch-hex">#2FB89E</span></div>
+          <div class="color-swatch"><div class="swatch-box" style="background:#1F9A82"></div><span class="swatch-name" data-i18n-attr="primary-dark">Primary Dark</span><span class="swatch-hex">#1F9A82</span></div>
+          <div class="color-swatch"><div class="swatch-box" style="background:#E8F8F4"></div><span class="swatch-name" data-i18n-attr="primary-light">Primary Light</span><span class="swatch-hex">#E8F8F4</span></div>
+          <div class="color-swatch"><div class="swatch-box" style="background:#E8825C"></div><span class="swatch-name" data-i18n="accent">Accent</span><span class="swatch-hex">#E8825C</span></div>
+          <div class="color-swatch"><div class="swatch-box" style="background:#C96A45"></div><span class="swatch-name" data-i18n-attr="accent-dark">Accent Dark</span><span class="swatch-hex">#C96A45</span></div>
+          <div class="color-swatch"><div class="swatch-box" style="background:#FFF1EB"></div><span class="swatch-name" data-i18n-attr="accent-light">Accent Light</span><span class="swatch-hex">#FFF1EB</span></div>
+        </div>
+        <p class="ds-sec-title" data-i18n="semanticColors">Semantic Colors</p>
+        <div class="ds-colors">
+          <div class="color-swatch"><div class="swatch-box" style="background:#16A34A"></div><span class="swatch-name" data-i18n="success">Success</span><span class="swatch-hex">#16A34A</span></div>
+          <div class="color-swatch"><div class="swatch-box" style="background:#E59E0B"></div><span class="swatch-name" data-i18n="warning">Warning</span><span class="swatch-hex">#E59E0B</span></div>
+          <div class="color-swatch"><div class="swatch-box" style="background:#DC2626"></div><span class="swatch-name" data-i18n="danger">Danger</span><span class="swatch-hex">#DC2626</span></div>
+          <div class="color-swatch"><div class="swatch-box" style="background:#2563EB"></div><span class="swatch-name" data-i18n="information">Info</span><span class="swatch-hex">#2563EB</span></div>
+        </div>
+        <p class="ds-sec-title" data-i18n="penColors">Penalty Colors</p>
+        <div class="ds-colors">
+          <div class="color-swatch"><div class="swatch-box" style="background:#EAB308"></div><span class="swatch-name" data-i18n="yellow">Yellow</span><span class="swatch-hex">#EAB308</span></div>
+          <div class="color-swatch"><div class="swatch-box" style="background:#F97316"></div><span class="swatch-name" data-i18n="orange">Orange</span><span class="swatch-hex">#F97316</span></div>
+          <div class="color-swatch"><div class="swatch-box" style="background:#EF4444"></div><span class="swatch-name" data-i18n="red">Red</span><span class="swatch-hex">#EF4444</span></div>
+          <div class="color-swatch"><div class="swatch-box" style="background:#374151"></div><span class="swatch-name" data-i18n="black">Black</span><span class="swatch-hex">#374151</span></div>
+          <div class="color-swatch"><div class="swatch-box" style="background:#7C3AED"></div><span class="swatch-name" data-i18n="invest">Investigation</span><span class="swatch-hex">#7C3AED</span></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3 style="font-size:16px;font-weight:700;color:var(--g800);margin-bottom:20px" data-i18n="typoSettings">Typography</h3>
+        <div style="display:flex;flex-direction:column;gap:0">
+          <div class="ds-typo-row"><span style="font-size:30px;font-weight:800;color:var(--g800)" data-i18n="ds-sample">Sample Text</span><span class="ds-typo-label">Heading 1 — 30px / 800</span></div>
+          <div class="ds-typo-row"><span style="font-size:22px;font-weight:800;color:var(--g800)" data-i18n="ds-sample">Sample Text</span><span class="ds-typo-label">Heading 2 — 22px / 800</span></div>
+          <div class="ds-typo-row"><span style="font-size:18px;font-weight:700;color:var(--g800)" data-i18n="ds-sample">Sample Text</span><span class="ds-typo-label">Heading 3 — 18px / 700</span></div>
+          <div class="ds-typo-row"><span style="font-size:15px;font-weight:700;color:var(--g800)" data-i18n="ds-sample">Sample Text</span><span class="ds-typo-label">Heading 4 — 15px / 700</span></div>
+          <div class="ds-typo-row"><span style="font-size:14px;font-weight:500;color:var(--g800)" data-i18n="ds-sample">Sample Text</span><span class="ds-typo-label">Body — 14px / 500</span></div>
+          <div class="ds-typo-row"><span style="font-size:13px;font-weight:500;color:var(--g800)" data-i18n="ds-sample">Sample Text</span><span class="ds-typo-label">Body Small — 13px / 500</span></div>
+          <div class="ds-typo-row"><span style="font-size:12px;font-weight:400;color:var(--g800)" data-i18n="ds-sample">Sample Text</span><span class="ds-typo-label">Caption — 12px / 400</span></div>
+          <div class="ds-typo-row"><span style="font-size:11px;font-weight:600;color:var(--g800);text-transform:uppercase;letter-spacing:0.05em" data-i18n="ds-sample">Sample Text</span><span class="ds-typo-label">Label — 11px / 600 / Uppercase</span></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3 style="font-size:16px;font-weight:700;color:var(--g800);margin-bottom:20px" data-i18n="compSettings">Components</h3>
+        <p class="ds-sec-title" data-i18n="buttons">Buttons</p>
+        <div style="display:flex;gap:10px;margin-bottom:24px;flex-wrap:wrap;align-items:center">
+          <button class="btn btn-pri"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><span data-i18n="primary">Primary</span></button>
+          <button class="btn btn-sec">Secondary</button>
+          <button class="btn btn-acc"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg><span data-i18n="accent">Accent</span></button>
+          <button class="btn btn-dan"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg><span data-i18n="danger">Danger</span></button>
+          <button class="btn btn-ghost">Ghost</button>
+        </div>
+        <p class="ds-sec-title" data-i18n="badges">Badges</p>
+        <div style="display:flex;gap:10px;margin-bottom:24px;flex-wrap:wrap;align-items:center" id="ds-badges"></div>
+        <p class="ds-sec-title" data-i18n="inputs">Inputs</p>
+        <div class="grid-3" style="margin-bottom:24px">
+          <div class="form-group"><label class="form-label-sm">Default</label><input class="form-input" placeholder="Text input"/></div>
+          <div class="form-group"><label class="form-label-sm" style="color:var(--pri)">Focused</label><input class="form-input" placeholder="Focused" style="border:2px solid var(--pri);box-shadow:0 0 0 3px rgba(47,184,158,0.1)"/></div>
+          <div class="form-group"><label class="form-label-sm" style="color:var(--err)">Error</label><input class="form-input" placeholder="Error state" style="border:2px solid var(--err);box-shadow:0 0 0 3px rgba(220,38,38,0.08)"/></div>
+        </div>
+        <p class="ds-sec-title" data-i18n="cards">Cards</p>
+        <div class="grid-3">
+          <div class="card" style="border:1px solid var(--g200)"><div style="font-size:13px;font-weight:600;color:var(--g700)">Default Card</div><div style="font-size:12px;color:var(--g400);margin-top:4px">shadow: sm, radius: 14px</div></div>
+          <div class="card" style="border:1px solid rgba(47,184,158,0.3);background:var(--priL)"><div style="font-size:13px;font-weight:600;color:var(--priD)">Info Card</div><div style="font-size:12px;color:var(--pri);margin-top:4px">background: primaryLight</div></div>
+          <div class="card" style="border:1px solid rgba(220,38,38,0.3);background:var(--errL)"><div style="font-size:13px;font-weight:600;color:var(--err)">Alert Card</div><div style="font-size:12px;color:var(--err);margin-top:4px">background: dangerLight</div></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══ SETTINGS ══ -->
+    <section class="page" id="page-set">
+      <h2 class="page-title" data-i18n="set">Settings</h2>
+      <div class="card">
+        <div class="settings-placeholder">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--g300)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+          <p id="set-coming-soon">Coming Soon — System Settings</p>
+          <p class="sub" id="set-coming-sub">Email config, passwords, notification preferences</p>
+        </div>
+      </div>
+    </section>
+
+  </div><!-- /content -->
+</div><!-- /main -->
+
+<script>
+/* ═══════════════════════════════════════════════════════════════
+   DATA
+   ═══════════════════════════════════════════════════════════════ */
+const EMPS = [
+  {id:1,n:"Ahmed Hassan",nA:"أحمد حسن",e:"ahmed@tg.sa",d:"Operations",dA:"العمليات",m:"mgr1@tg.sa",v:3,s:"active"},
+  {id:2,n:"Sara Al-Rashidi",nA:"سارة الرشيدي",e:"sara@tg.sa",d:"Sales",dA:"المبيعات",m:"mgr2@tg.sa",v:1,s:"active"},
+  {id:3,n:"Mohammed Ali",nA:"محمد علي",e:"mo@tg.sa",d:"Call Center",dA:"مركز الاتصال",m:"mgr1@tg.sa",v:5,s:"frozen"},
+  {id:4,n:"Fatima Noor",nA:"فاطمة نور",e:"fatima@tg.sa",d:"Call Center",dA:"مركز الاتصال",m:"mgr2@tg.sa",v:0,s:"active"},
+  {id:5,n:"Khalid Omar",nA:"خالد عمر",e:"khalid@tg.sa",d:"Operations",dA:"العمليات",m:"mgr1@tg.sa",v:2,s:"active"},
+  {id:6,n:"Layla Ibrahim",nA:"ليلى إبراهيم",e:"layla@tg.sa",d:"Sales",dA:"المبيعات",m:"mgr2@tg.sa",v:4,s:"frozen"},
+];
+
+const VIOLS = [
+  {id:1,emp:"Ahmed Hassan",empA:"أحمد حسن",cat:"Attendance",inc:"Late Arrival",incA:"التأخير",pen:"Yellow",dd:0,dt:"2026-04-12",by:"Amin"},
+  {id:2,emp:"Mohammed Ali",empA:"محمد علي",cat:"Abusing",inc:"Aux Abuse",incA:"إساءة أنظمة",pen:"Orange",dd:0.5,dt:"2026-04-11",by:"Amin"},
+  {id:3,emp:"Sara Al-Rashidi",empA:"سارة الرشيدي",cat:"Policy",inc:"Mobile Phone",incA:"الهاتف",pen:"Red",dd:2,dt:"2026-04-10",by:"HR Admin"},
+  {id:4,emp:"Mohammed Ali",empA:"محمد علي",cat:"Attendance",inc:"No-Show",incA:"الغياب",pen:"Red",dd:2,dt:"2026-04-09",by:"Amin"},
+  {id:5,emp:"Layla Ibrahim",empA:"ليلى إبراهيم",cat:"Personal",inc:"Unprofessional",incA:"سلوك غير مهني",pen:"Black",dd:4,dt:"2026-04-08",by:"HR Admin"},
+  {id:6,emp:"Ahmed Hassan",empA:"أحمد حسن",cat:"Attendance",inc:"Exceed Breaks",incA:"تجاوز الراحة",pen:"Yellow",dd:0,dt:"2026-04-07",by:"Amin"},
+  {id:7,emp:"Khalid Omar",empA:"خالد عمر",cat:"Policy",inc:"Food Area",incA:"أكل ممنوع",pen:"Orange",dd:0.5,dt:"2026-04-05",by:"HR Admin"},
+];
+
+const CHART_CAT = [
+  {n:"Attendance",nA:"الحضور",v:12,c:"#2FB89E"},
+  {n:"Personal",nA:"السلوك",v:5,c:"#E8825C"},
+  {n:"Abusing",nA:"إساءة",v:4,c:"#E59E0B"},
+  {n:"Policy",nA:"سياسات",v:7,c:"#2563EB"},
+];
+const CHART_TREND = [
+  {m:"Nov",mA:"نوفمبر",v:4},{m:"Dec",mA:"ديسمبر",v:7},
+  {m:"Jan",mA:"يناير",v:5},{m:"Feb",mA:"فبراير",v:9},
+  {m:"Mar",mA:"مارس",v:6},{m:"Apr",mA:"أبريل",v:8},
+];
+const CHART_PEN = [
+  {n:"Yellow",nA:"أصفر",v:8,c:"#EAB308"},
+  {n:"Orange",nA:"برتقالي",v:6,c:"#F97316"},
+  {n:"Red",nA:"أحمر",v:4,c:"#EF4444"},
+  {n:"Black",nA:"أسود",v:2,c:"#374151"},
+  {n:"Invest.",nA:"تحقيق",v:1,c:"#7C3AED"},
+];
+
+const RULES = {
+  "Attendance":{items:[
+    {n:"Late Arrival",nA:"التأخير",reset:30,esc:["Yellow","Yellow","Orange","Red","Black","Investigation"]},
+    {n:"No-Show",nA:"الغياب",reset:90,esc:["Red","Red","Black","Investigation"]},
+    {n:"Exceed Breaks",nA:"تجاوز الراحة",reset:30,esc:["Yellow","Yellow","Yellow","Yellow","Orange","Red","Black","Investigation"]},
+    {n:"Early Leave",nA:"انصراف مبكر",reset:180,esc:["Black","Investigation"]},
+  ]},
+  "Personal Attitude":{items:[
+    {n:"Abusive Words",nA:"ألفاظ مسيئة",reset:180,esc:["Black","Investigation"]},
+    {n:"Physical Harm",nA:"إيذاء بدني",reset:180,esc:["Investigation"]},
+    {n:"Sleeping on Job",nA:"النوم بالعمل",reset:180,esc:["Black","Investigation"]},
+    {n:"Unprofessional",nA:"سلوك غير مهني",reset:180,esc:["Black","Investigation"]},
+  ]},
+  "Abusing":{items:[
+    {n:"Company Assets",nA:"ممتلكات",reset:180,esc:["Investigation"]},
+    {n:"Routing Calls",nA:"توجيه خاطئ",reset:180,esc:["Black","Investigation"]},
+    {n:"Aux Abuse",nA:"إساءة أنظمة",reset:30,esc:["Yellow","Yellow","Orange","Red","Black","Investigation"]},
+  ]},
+  "Policy Violations":{items:[
+    {n:"Mobile Phone",nA:"الهاتف",reset:30,esc:["Red","Black","Investigation"]},
+    {n:"Food & Beverage",nA:"أكل ممنوع",reset:30,esc:["Orange","Red","Black","Investigation"]},
+    {n:"Business Process",nA:"مخالفة إجراءات",reset:30,esc:["Orange","Red","Black","Investigation"]},
+    {n:"Cyber Security",nA:"اختراق أمني",reset:30,esc:["Red","Black","Investigation"]},
+    {n:"Harassment",nA:"تحرش",reset:180,esc:["Investigation"]},
+    {n:"Theft",nA:"سرقة",reset:180,esc:["Investigation"]},
+  ]}
+};
+
+/* ═══════════════════════════════════════════════════════════════
+   I18N
+   ═══════════════════════════════════════════════════════════════ */
+const L = {
+  en:{
+    title:"HR Disciplinary System",sub:"Travel Gate KSA",
+    dash:"Dashboard",emp:"Employees",log:"Log Violation",
+    rep:"Reports",rules:"Rules Matrix",set:"Settings",
+    totV:"Total Violations",totE:"Employees",totD:"Deduction Days",
+    actF:"Active Freezes",recent:"Recent Violations",byCat:"By Category",
+    trend:"Monthly Trend",penDist:"Penalty Distribution",topInc:"Top Incidents",
+    employee:"Employee",cat:"Category",inc:"Incident",pen:"Penalty",
+    date:"Date",ded:"Deduction",status:"Status",act:"Action",
+    search:"Search...",addEmp:"Add Employee",name:"Full Name",
+    email:"Email",dept:"Department",mgrEmail:"Manager Email",
+    save:"Save",cancel:"Cancel",del:"Delete",edit:"Edit",view:"View",
+    regV:"Register New Violation",vCat:"Violation Category",
+    incType:"Incident Type",hrRep:"HR Representative",comments:"Comments",
+    proof:"Attach Proof",submit:"Submit & Notify",escPath:"Escalation Path",
+    reset:"Reset Window",days:"days",maxS:"Max Steps",details:"Details",
+    hrNote:"HR Note",pGuide:"Penalties Guide",forceInv:"Force Investigation",
+    dedOver:"Deduction Override",filters:"Filters",from:"From",to:"To",
+    penLvl:"Penalty Level",all:"All",export:"Export Excel",
+    vHist:"Violation History",paySummary:"Payroll Summary",
+    count:"Count",freeze:"Active Freeze",yes:"Yes",no:"No",
+    noData:"No data available",step:"Step",
+    yellow:"Yellow",orange:"Orange",red:"Red",black:"Black",invest:"Investigation",
+    pNotice:"Performance Notice",pFlag:"Perf. Flag — 0.5 Day",
+    pAlert:"Perf. Alert — 2 Days",pWarn:"Warning — 4 Days + Freeze",
+    pSusp:"Suspended — Investigation",
+    att:"Attendance",pers:"Personal Attitude",abuse:"Abusing",pol:"Policy Violations",
+    welcome:"Welcome back",todayAct:"Today's activity summary",
+    newV:"New Violation",viewAll:"View All",lang:"العربية",
+    logout:"Logout",notif:"Notifications",
+    subBy:"Submitted By",frozenUntil:"Frozen Until",daysUnit:"d",
+    active:"Active",frozen:"Frozen",
+    designSys:"Design System",dsDesc:"Complete design system for the HR Disciplinary System",
+    primary:"Primary",accent:"Accent",success:"Success",warning:"Warning",danger:"Danger",information:"Info",
+    colSettings:"Color Palette",typoSettings:"Typography",compSettings:"Components",
+    brandColors:"Brand Colors",semanticColors:"Semantic Colors",penColors:"Penalty Colors",
+    headings:"Headings",bodyText:"Body Text",buttons:"Buttons",inputs:"Inputs",badges:"Badges",cards:"Cards",
+    "ds-sample":"Sample Text","primary-dark":"Primary Dark","primary-light":"Primary Light","accent-dark":"Accent Dark","accent-light":"Accent Light",
+    "dash-kpi1-sub":"+3 this month","dash-kpi2-sub":"3 departments","dash-kpi3-sub":"total deduction days","dash-kpi4-sub":"active promotion freezes",
+  },
+  ar:{
+    title:"نظام الإنذارات الإدارية",sub:"ترافل جيت السعودية",
+    dash:"لوحة المعلومات",emp:"الموظفين",log:"تسجيل مخالفة",
+    rep:"التقارير",rules:"مصفوفة القواعد",set:"الإعدادات",
+    totV:"إجمالي المخالفات",totE:"الموظفين",totD:"أيام الخصم",
+    actF:"التجميد النشط",recent:"أحدث المخالفات",byCat:"حسب التصنيف",
+    trend:"الاتجاه الشهري",penDist:"توزيع العقوبات",topInc:"أكثر الأخطاء",
+    employee:"الموظف",cat:"التصنيف",inc:"الخطأ",pen:"العقوبة",
+    date:"التاريخ",ded:"الخصم",status:"الحالة",act:"الإجراء",
+    search:"بحث...",addEmp:"إضافة موظف",name:"الاسم الكامل",
+    email:"البريد الإلكتروني",dept:"القسم",mgrEmail:"إيميل المدير",
+    save:"حفظ",cancel:"إلغاء",del:"حذف",edit:"تعديل",view:"عرض",
+    regV:"تسجيل مخالفة جديدة",vCat:"تصنيف المخالفة",
+    incType:"نوع الخطأ",hrRep:"ممثل HR",comments:"ملاحظات",
+    proof:"إرفاق إثبات",submit:"إرسال وإشعار",escPath:"مسار التصعيد",
+    reset:"فترة السماح",days:"يوم",maxS:"الحد الأقصى",details:"التفاصيل",
+    hrNote:"ملاحظة HR",pGuide:"دليل العقوبات",forceInv:"تحويل للتحقيق",
+    dedOver:"تعديل الخصم يدوياً",filters:"الفلاتر",from:"من",to:"إلى",
+    penLvl:"مستوى العقوبة",all:"الكل",export:"تصدير إكسيل",
+    vHist:"سجل المخالفات",paySummary:"ملخص الرواتب",
+    count:"العدد",freeze:"تجميد نشط",yes:"نعم",no:"لا",
+    noData:"لا توجد بيانات",step:"خطوة",
+    yellow:"أصفر",orange:"برتقالي",red:"أحمر",black:"أسود",invest:"تحقيق",
+    pNotice:"إشعار أداء",pFlag:"لفت نظر — نصف يوم",
+    pAlert:"إنذار — يومين",pWarn:"تحذير — 4 أيام + تجميد",
+    pSusp:"إيقاف — تحقيق فوري",
+    att:"الحضور",pers:"السلوك",abuse:"إساءة",pol:"سياسات",
+    welcome:"مرحباً بعودتك",todayAct:"ملخص نشاط اليوم",
+    newV:"مخالفة جديدة",viewAll:"عرض الكل",lang:"English",
+    logout:"خروج",notif:"الإشعارات",
+    subBy:"أُدخلت بواسطة",frozenUntil:"مجمد حتى",daysUnit:"ي",
+    active:"نشط",frozen:"مجمد",
+    designSys:"نظام التصميم",dsDesc:"نظام التصميم الكامل لنظام الإنذارات",
+    primary:"أساسي",accent:"ثانوي",success:"نجاح",warning:"تحذير",danger:"خطر",information:"معلومات",
+    colSettings:"الألوان",typoSettings:"الخطوط",compSettings:"المكونات",
+    brandColors:"ألوان العلامة",semanticColors:"ألوان دلالية",penColors:"ألوان العقوبات",
+    headings:"العناوين",bodyText:"النص",buttons:"الأزرار",inputs:"الحقول",badges:"الشارات",cards:"البطاقات",
+    "ds-sample":"نص تجريبي","primary-dark":"أساسي داكن","primary-light":"أساسي فاتح","accent-dark":"ثانوي داكن","accent-light":"ثانوي فاتح",
+    "dash-kpi1-sub":"+3 هذا الشهر","dash-kpi2-sub":"3 أقسام","dash-kpi3-sub":"إجمالي أيام الخصم","dash-kpi4-sub":"تجميد ترقية نشط",
+  }
+};
+
+/* ═══════════════════════════════════════════════════════════════
+   STATE
+   ═══════════════════════════════════════════════════════════════ */
+let lang = "en";
+let collapsed = false;
+let activePage = "dash";
+let activeRulesCat = "Attendance";
+let charts = {};
+
+/* ═══════════════════════════════════════════════════════════════
+   HELPERS
+   ═══════════════════════════════════════════════════════════════ */
+function t(k){ return L[lang][k] || k; }
+function isAr(){ return lang === "ar"; }
+
+function pbHtml(lv, sm=false){
+  const cfgs = {
+    Yellow:{cls:"pb-yellow",lb:"Yellow",lbA:"أصفر"},
+    Orange:{cls:"pb-orange",lb:"Orange",lbA:"برتقالي"},
+    Red:{cls:"pb-red",lb:"Red",lbA:"أحمر"},
+    Black:{cls:"pb-black",lb:"Black",lbA:"أسود"},
+    Investigation:{cls:"pb-investigation",lb:"Investigation",lbA:"تحقيق"},
+  };
+  const x = cfgs[lv] || cfgs.Yellow;
+  const sz = sm ? "pb-sm" : "pb-lg";
+  const label = isAr() ? x.lbA : x.lb;
+  return `<span class="pb ${x.cls} ${sz}"><span class="pb-dot"></span>${label}</span>`;
+}
+
+function statusBadgeHtml(s){
+  const cls = s === "frozen" ? "status-frozen" : "status-active";
+  const label = s === "frozen" ? t("frozen") : t("active");
+  return `<span class="status-badge ${cls}"><span class="status-dot"></span>${label}</span>`;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   NAVIGATION
+   ═══════════════════════════════════════════════════════════════ */
+function goPage(id){
+  activePage = id;
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('page-' + id).classList.add('active');
+  document.querySelectorAll('.nav-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.page === id);
+  });
+  document.getElementById('page-title').textContent = t(id === 'ds' ? 'designSys' : id);
+  if(id === 'dash') renderDash();
+  if(id === 'rep') renderReports();
+}
+
+document.querySelectorAll('.nav-btn').forEach(btn => {
+  btn.addEventListener('click', () => goPage(btn.dataset.page));
+});
+
+/* COLLAPSE */
+document.getElementById('collapse-btn').addEventListener('click', () => {
+  collapsed = !collapsed;
+  const sb = document.getElementById('sidebar');
+  const main = document.getElementById('main');
+  sb.classList.toggle('collapsed', collapsed);
+  main.classList.toggle('expanded', collapsed);
+  document.documentElement.style.setProperty('--sw', collapsed ? '68px' : '252px');
+  const icon = document.getElementById('collapse-icon');
+  if(isAr()){
+    icon.innerHTML = collapsed
+      ? '<polyline points="9 18 15 12 9 6"/>'
+      : '<polyline points="15 18 9 12 15 6"/>';
+  } else {
+    icon.innerHTML = collapsed
+      ? '<polyline points="9 18 15 12 9 6"/>'
+      : '<polyline points="15 18 9 12 15 6"/>';
+  }
+});
+
+/* ═══════════════════════════════════════════════════════════════
+   LANGUAGE TOGGLE
+   ═══════════════════════════════════════════════════════════════ */
+document.getElementById('lang-btn').addEventListener('click', () => {
+  lang = lang === "en" ? "ar" : "en";
+  applyLang();
+});
+
+function applyLang(){
+  const ar = isAr();
+  document.body.classList.toggle('rtl', ar);
+  document.getElementById('lang-label').textContent = t('lang');
+  document.getElementById('topbar-avatar').textContent = ar ? 'أ' : 'A';
+  document.getElementById('topbar-username').textContent = ar ? 'أمين' : 'Amin';
+  document.getElementById('dash-name').textContent = ar ? 'أمين' : 'Amin';
+  document.getElementById('sidebar-subtitle').textContent = t('title');
+  document.getElementById('page-title').textContent = t(activePage === 'ds' ? 'designSys' : activePage);
+  document.getElementById('set-coming-soon').textContent = ar ? 'قريباً — إعدادات النظام' : 'Coming Soon — System Settings';
+  document.getElementById('set-coming-sub').textContent = ar ? 'إعدادات البريد، كلمة المرور، والإشعارات' : 'Email config, passwords, notification preferences';
+  // i18n elements
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const k = el.getAttribute('data-i18n');
+    if(L[lang][k]) el.textContent = L[lang][k];
+  });
+  // nav labels
+  const navKeys = {dash:'dash',log:'log',emp:'emp',rep:'rep',rules:'rules',ds:'designSys',set:'set'};
+  document.querySelectorAll('.nav-btn').forEach(btn => {
+    const k = navKeys[btn.dataset.page];
+    if(k) btn.querySelector('.nav-label').textContent = t(k);
+  });
+  // re-render dynamic content
+  renderDash();
+  renderEmployees();
+  renderReports();
+  renderRules();
+  updateLogCat();
+  renderLogEmpSelect();
+  renderFilterSelect();
+  renderLogCatSelect();
+  // ds badges
+  renderDsBadges();
+  // typography sample
+  document.querySelectorAll('[data-i18n="ds-sample"]').forEach(el => {
+    el.textContent = ar ? 'نص تجريبي' : 'Sample Text';
+  });
+  // search input
+  const si = document.querySelector('#page-emp .search-wrap input');
+  if(si) si.placeholder = t('search');
+  const hri = document.getElementById('log-hr-input');
+  if(hri) hri.placeholder = ar ? 'اسم ممثل HR' : 'HR rep name';
+  const ta = document.querySelector('#page-log textarea');
+  if(ta) ta.placeholder = ar ? 'ملاحظات إضافية...' : 'Additional notes...';
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   DASHBOARD
+   ═══════════════════════════════════════════════════════════════ */
+function renderDash(){
+  // Recent table header
+  const thead = document.getElementById('recent-thead');
+  thead.innerHTML = [t('employee'),t('inc'),t('pen'),t('ded'),t('date')]
+    .map(h => `<th>${h}</th>`).join('');
+  // Recent table body
+  const tbody = document.getElementById('recent-tbody');
+  tbody.innerHTML = VIOLS.slice(0,5).map(r => `
+    <tr>
+      <td style="font-weight:600;color:var(--g700)">${isAr()?r.empA:r.emp}</td>
+      <td style="color:var(--g500)">${isAr()?r.incA:r.inc}</td>
+      <td>${pbHtml(r.pen,true)}</td>
+      <td style="color:var(--g500)">${r.dd} ${t('daysUnit')}</td>
+      <td style="color:var(--g400);font-size:12px">${r.dt}</td>
+    </tr>`).join('');
+  // Penalty distribution
+  const pd = document.getElementById('pen-dist');
+  pd.innerHTML = CHART_PEN.map(p => {
+    const lv = p.n === "Invest." ? "Investigation" : p.n;
+    return `<div class="pen-dist-row">
+      ${pbHtml(lv,true)}
+      <div class="pen-dist-bar-bg"><div class="pen-dist-bar" style="width:${(p.v/10)*100}%;background:${p.c}"></div></div>
+      <span class="pen-dist-val">${p.v}</span>
+    </div>`;
+  }).join('');
+  // Charts
+  renderTrendChart();
+  renderCatChart();
+  // KPI sub texts
+  const subKeys = ['dash-kpi1-sub','dash-kpi2-sub','dash-kpi3-sub','dash-kpi4-sub'];
+  subKeys.forEach(k => {
+    document.querySelectorAll(`[data-i18n-attr="${k}"]`).forEach(el => {
+      el.textContent = t(k);
+    });
+  });
+}
+
+function renderTrendChart(){
+  const ctx = document.getElementById('chart-trend');
+  if(!ctx) return;
+  if(charts.trend) charts.trend.destroy();
+  const labels = CHART_TREND.map(d => isAr() ? d.mA : d.m);
+  charts.trend = new Chart(ctx, {
+    type:'line',
+    data:{
+      labels,
+      datasets:[{
+        data: CHART_TREND.map(d => d.v),
+        borderColor:'#2FB89E',borderWidth:2.5,
+        fill:true,
+        backgroundColor:'rgba(47,184,158,0.1)',
+        tension:0.4,pointBackgroundColor:'#2FB89E',pointRadius:4,
+      }]
+    },
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>`Violations: ${ctx.raw}`}}},
+      scales:{
+        x:{grid:{display:false},ticks:{color:'#94A0AD',font:{size:11}}},
+        y:{grid:{color:'#EEF1F4'},ticks:{color:'#94A0AD',font:{size:11}}},
+      }
+    }
+  });
+}
+
+function renderCatChart(){
+  const ctx = document.getElementById('chart-cat');
+  if(!ctx) return;
+  if(charts.cat) charts.cat.destroy();
+  charts.cat = new Chart(ctx, {
+    type:'doughnut',
+    data:{
+      labels: CHART_CAT.map(d => isAr() ? d.nA : d.n),
+      datasets:[{data: CHART_CAT.map(d => d.v), backgroundColor: CHART_CAT.map(d=>d.c), borderWidth:0, hoverOffset:4}]
+    },
+    options:{responsive:true,maintainAspectRatio:false,cutout:'58%',
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>`${ctx.label}: ${ctx.raw}`}}}
+    }
+  });
+  // Legend
+  document.getElementById('cat-legend').innerHTML = CHART_CAT.map(c =>
+    `<div class="legend-item"><span class="legend-dot" style="background:${c.c}"></span>${isAr()?c.nA:c.n}</div>`
+  ).join('');
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   LOG VIOLATION
+   ═══════════════════════════════════════════════════════════════ */
+let guideVisible = false;
+document.getElementById('guide-toggle-btn').addEventListener('click', () => {
+  guideVisible = !guideVisible;
+  document.getElementById('guide-panel').classList.toggle('hidden', !guideVisible);
+  const span = document.querySelector('#guide-toggle-btn span');
+  span.textContent = guideVisible ? (isAr()?'إخفاء':'Hide') : t('pGuide');
+});
+
+function renderGuide(){
+  const guides = [
+    {lv:"Yellow",lb:t('pNotice'),dd:"0",ic:"🟡"},
+    {lv:"Orange",lb:t('pFlag'),dd:"0.5",ic:"🟠"},
+    {lv:"Red",lb:t('pAlert'),dd:"2",ic:"🔴"},
+    {lv:"Black",lb:t('pWarn'),dd:"4",ic:"⬛"},
+    {lv:"Investigation",lb:t('pSusp'),dd:"—",ic:"🔍"},
+  ];
+  document.getElementById('guide-grid').innerHTML = guides.map(g => `
+    <div class="guide-card">
+      <div class="guide-icon">${g.ic}</div>
+      ${pbHtml(g.lv,true)}
+      <div class="guide-name">${g.lb}</div>
+      <div class="guide-ded">${g.dd} ${t('days')}</div>
+    </div>`).join('');
+}
+
+const CAT_LABELS_EN = {"Attendance":"Attendance","Personal Attitude":"Personal Attitude","Abusing":"Abusing","Policy Violations":"Policy Violations"};
+const CAT_LABELS_AR = {"Attendance":"الحضور","Personal Attitude":"السلوك","Abusing":"إساءة","Policy Violations":"سياسات"};
+
+function renderLogCatSelect(){
+  const sel = document.getElementById('log-cat-select');
+  const val = sel.value;
+  sel.innerHTML = Object.keys(RULES).map(c =>
+    `<option value="${c}">${isAr()?CAT_LABELS_AR[c]:c}</option>`
+  ).join('');
+  if(val) sel.value = val;
+}
+
+function renderLogEmpSelect(){
+  const sel = document.getElementById('log-emp-select');
+  sel.innerHTML = EMPS.map(e => `<option>${isAr()?e.nA:e.n}</option>`).join('');
+}
+
+function updateLogCat(){
+  const cat = document.getElementById('log-cat-select').value;
+  const items = RULES[cat]?.items || [];
+  document.getElementById('log-inc-select').innerHTML = items.map(it =>
+    `<option>${isAr()?it.nA:it.n}</option>`
+  ).join('');
+  // Escalation path
+  const first = items[0];
+  const steps = first ? first.esc : ["Yellow","Orange","Red","Black","Investigation"];
+  document.getElementById('esc-path-steps').innerHTML = steps.map((s,i) =>
+    `<div class="esc-step"><span class="esc-num">${i+1}</span>${pbHtml(s,true)}</div>`
+  ).join('');
+  document.getElementById('esc-reset-val').textContent = `${first?.reset||30} ${t('days')}`;
+  document.getElementById('esc-steps-val').textContent = `${steps.length} ${t('step')}`;
+  document.getElementById('esc-cat-val').textContent = isAr() ? CAT_LABELS_AR[cat] : cat;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   EMPLOYEES
+   ═══════════════════════════════════════════════════════════════ */
+function renderEmployees(){
+  const heads = [t('name'),t('email'),t('dept'),t('mgrEmail'),t('totV'),t('status'),t('act')];
+  document.getElementById('emp-thead').innerHTML = heads.map(h=>`<th>${h}</th>`).join('');
+  document.getElementById('emp-tbody').innerHTML = EMPS.map(e => {
+    const vc = e.v > 3 ? 'var(--err)' : e.v > 0 ? 'var(--warn)' : 'var(--ok)';
+    return `<tr>
+      <td>
+        <div style="display:flex;align-items:center;gap:10px">
+          <div style="width:32px;height:32px;border-radius:50%;background:rgba(47,184,158,0.1);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:var(--pri)">${(isAr()?e.nA:e.n).charAt(0)}</div>
+          <span style="font-weight:600;color:var(--g700)">${isAr()?e.nA:e.n}</span>
+        </div>
+      </td>
+      <td style="color:var(--g500)">${e.e}</td>
+      <td style="color:var(--g500)">${isAr()?e.dA:e.d}</td>
+      <td style="color:var(--g400);font-size:12px">${e.m}</td>
+      <td><span style="font-weight:700;color:${vc}">${e.v}</span></td>
+      <td>${statusBadgeHtml(e.s)}</td>
+      <td>
+        <div style="display:flex;gap:4px">
+          <button style="padding:6px;border-radius:var(--r1);border:none;background:transparent;cursor:pointer;color:var(--g400)" title="${t('view')}">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+          </button>
+          <button style="padding:6px;border-radius:var(--r1);border:none;background:transparent;cursor:pointer;color:var(--g400)" title="${t('edit')}">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          </button>
+          <button style="padding:6px;border-radius:var(--r1);border:none;background:transparent;cursor:pointer;color:var(--err)" title="${t('del')}">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+          </button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function toggleAddEmp(){
+  document.getElementById('add-emp-panel').classList.toggle('hidden');
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   REPORTS
+   ═══════════════════════════════════════════════════════════════ */
+function renderFilterSelect(){
+  const sel = document.getElementById('rep-emp-filter');
+  if(!sel) return;
+  sel.innerHTML = `<option value="">${t('all')}</option>` +
+    EMPS.map(e=>`<option>${isAr()?e.nA:e.n}</option>`).join('');
+}
+
+function toggleFilters(){
+  document.getElementById('filter-panel').classList.toggle('hidden');
+}
+
+function renderReports(){
+  const heads = [t('employee'),t('cat'),t('inc'),t('pen'),`${t('ded')} (${t('days')})`,t('subBy'),t('date')];
+  document.getElementById('rep-thead').innerHTML = heads.map(h=>`<th>${h}</th>`).join('');
+  document.getElementById('rep-tbody').innerHTML = VIOLS.map(r => `
+    <tr>
+      <td style="font-weight:600">${isAr()?r.empA:r.emp}</td>
+      <td style="color:var(--g500)">${r.cat}</td>
+      <td style="color:var(--g500)">${isAr()?r.incA:r.inc}</td>
+      <td>${pbHtml(r.pen,true)}</td>
+      <td style="color:var(--g700);font-weight:600">${r.dd}</td>
+      <td style="color:var(--g400)">${r.by}</td>
+      <td style="color:var(--g400);font-size:12px">${r.dt}</td>
+    </tr>`).join('');
+  renderRepCharts();
+}
+
+function renderRepCharts(){
+  // Penalty distribution bar
+  const ctx1 = document.getElementById('chart-rep-pen');
+  if(ctx1){
+    if(charts.repPen) charts.repPen.destroy();
+    charts.repPen = new Chart(ctx1,{
+      type:'bar',
+      data:{
+        labels: CHART_PEN.map(p => isAr()?p.nA:p.n),
+        datasets:[{data:CHART_PEN.map(p=>p.v),backgroundColor:CHART_PEN.map(p=>p.c),borderRadius:6,borderSkipped:false}]
+      },
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+        scales:{x:{grid:{display:false},ticks:{color:'#94A0AD',font:{size:11}}},
+          y:{grid:{color:'#EEF1F4'},ticks:{color:'#94A0AD',font:{size:11}}}}}
+    });
+  }
+  // Top incidents horizontal bar
+  const ctx2 = document.getElementById('chart-rep-top');
+  if(ctx2){
+    if(charts.repTop) charts.repTop.destroy();
+    const topData = [
+      {n:isAr()?"التأخير":"Late Arrival",v:8},
+      {n:isAr()?"الغياب":"No-Show",v:5},
+      {n:isAr()?"تجاوز راحة":"Exceed Breaks",v:4},
+      {n:isAr()?"الهاتف":"Mobile Phone",v:3},
+      {n:isAr()?"أكل ممنوع":"Food Area",v:3},
+    ];
+    charts.repTop = new Chart(ctx2,{
+      type:'bar',
+      data:{
+        labels:topData.map(d=>d.n),
+        datasets:[{data:topData.map(d=>d.v),backgroundColor:'#2FB89E',borderRadius:6}]
+      },
+      options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',plugins:{legend:{display:false}},
+        scales:{x:{grid:{color:'#EEF1F4'},ticks:{color:'#94A0AD',font:{size:11}}},
+          y:{grid:{display:false},ticks:{color:'#657080',font:{size:11}}}}}
+    });
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   RULES MATRIX
+   ═══════════════════════════════════════════════════════════════ */
+function renderRules(){
+  const cats = Object.keys(RULES);
+  // Tabs
+  document.getElementById('rule-tabs').innerHTML = cats.map(c => `
+    <button class="rule-tab${c===activeRulesCat?' active':''}" onclick="setRulesCat('${c}')">
+      ${isAr()?CAT_LABELS_AR[c]:c}
+    </button>`).join('');
+  // Table
+  document.getElementById('rules-thead').innerHTML = `<th>${t('inc')}</th><th style="text-align:center">${t('reset')}</th><th>${t('escPath')}</th>`;
+  document.getElementById('rules-tbody').innerHTML = (RULES[activeRulesCat]?.items||[]).map(rule => `
+    <tr>
+      <td style="font-weight:600;color:var(--g700)">${isAr()?rule.nA:rule.n}</td>
+      <td style="text-align:center"><span class="info-badge">${rule.reset} ${t('days')}</span></td>
+      <td>
+        <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+          ${rule.esc.map((s,j)=>`
+            <div style="display:flex;align-items:center;gap:4px">
+              <span style="font-size:10px;color:var(--g400);font-weight:600">${j+1}.</span>
+              ${pbHtml(s,true)}
+              ${j<rule.esc.length-1?'<span style="color:var(--g300);font-size:14px">→</span>':''}
+            </div>`).join('')}
+        </div>
+      </td>
+    </tr>`).join('');
+}
+
+function setRulesCat(c){
+  activeRulesCat = c;
+  renderRules();
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   DESIGN SYSTEM BADGES
+   ═══════════════════════════════════════════════════════════════ */
+function renderDsBadges(){
+  const el = document.getElementById('ds-badges');
+  if(!el) return;
+  el.innerHTML = ['Yellow','Orange','Red','Black','Investigation'].map(lv=>pbHtml(lv,false)).join('') +
+    statusBadgeHtml('active') + statusBadgeHtml('frozen');
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   INIT
+   ═══════════════════════════════════════════════════════════════ */
+function init(){
+  renderDash();
+  renderEmployees();
+  renderRules();
+  updateLogCat();
+  renderLogEmpSelect();
+  renderGuide();
+  renderFilterSelect();
+  renderDsBadges();
+}
+
+init();
+</script>
+</body>
+</html>

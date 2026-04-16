@@ -12,3 +12,4 @@ openpyxl==3.1.5
 smtplib
 email-validator==2.2.0
 pillow==10.4.0
+pydantic-settings==2.5.2
