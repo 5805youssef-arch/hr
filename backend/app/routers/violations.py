@@ -1,0 +1,117 @@
+from datetime import datetime, timedelta
+from typing import Optional
+
+from fastapi import APIRouter, HTTPException, Query
+
+from ..db import db
+from ..penalties import MATRIX_DATA, PENALTY_MAP
+from ..schemas import Violation, ViolationIn
+
+router = APIRouter(prefix="/violations", tags=["violations"])
+
+
+def _next_penalty(emp_name: str, category: str, incident: str) -> str:
+    meta = MATRIX_DATA[category][incident]
+    escalation = meta["escalation"]
+    reset_days = meta["reset"]
+    cutoff = (datetime.now() - timedelta(days=reset_days)).strftime("%Y-%m-%d %H:%M:%S")
+
+    with db() as conn:
+        row = conn.execute(
+            """SELECT COUNT(*) FROM violations
+               WHERE employee_name = ?
+                 AND incident = ?
+                 AND created_at >= ?
+                 AND penalty_color != 'Investigation'""",
+            (emp_name, incident, cutoff),
+        ).fetchone()
+    count = row[0] if row else 0
+    idx = min(count, len(escalation) - 1)
+    return escalation[idx]
+
+
+@router.get("", response_model=list[Violation])
+def list_violations(
+    employee: Optional[str] = None,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    incident: Optional[str] = None,
+    penalty: Optional[str] = None,
+):
+    clauses = ["1=1"]
+    params: list = []
+    if employee:
+        clauses.append("employee_name = ?")
+        params.append(employee)
+    if date_from:
+        clauses.append("created_at >= ?")
+        params.append(f"{date_from} 00:00:00")
+    if date_to:
+        clauses.append("created_at <= ?")
+        params.append(f"{date_to} 23:59:59")
+    if incident:
+        clauses.append("incident = ?")
+        params.append(incident)
+    if penalty:
+        clauses.append("penalty_color = ?")
+        params.append(penalty)
+
+    sql = f"SELECT * FROM violations WHERE {' AND '.join(clauses)} ORDER BY created_at DESC"
+    with db() as conn:
+        rows = conn.execute(sql, params).fetchall()
+        return [dict(r) for r in rows]
+
+
+@router.post("", response_model=Violation, status_code=201)
+def create_violation(payload: ViolationIn):
+    if payload.category not in MATRIX_DATA or payload.incident not in MATRIX_DATA[payload.category]:
+        raise HTTPException(400, "Unknown category or incident")
+
+    color = "Investigation" if payload.force_investigation else _next_penalty(
+        payload.employee_name, payload.category, payload.incident
+    )
+    p = PENALTY_MAP[color]
+
+    applied = (
+        payload.override_days
+        if payload.override_days is not None and payload.override_days >= 0
+        else p["deduction_days"]
+    )
+    if applied != p["deduction_days"] and color != "Investigation":
+        label = f"{color} Card \u2014 {applied} Days Deduction (Override)"
+    else:
+        label = p["label"]
+
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    with db() as conn:
+        cur = conn.execute(
+            """INSERT INTO violations
+               (employee_name, category, incident, penalty_color, penalty_label,
+                deduction_hours, deduction_days, freeze_months,
+                comment, submitted_by, proof_image, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+               RETURNING *""",
+            (
+                payload.employee_name, payload.category, payload.incident,
+                color, label,
+                p["deduction_hours"], applied, p["freeze_months"],
+                payload.comment, payload.submitted_by, payload.proof_image,
+                now,
+            ),
+        )
+        return dict(cur.fetchone())
+
+
+@router.delete("/{vid}", status_code=204)
+def delete_violation(vid: int):
+    with db() as conn:
+        conn.execute("DELETE FROM violations WHERE id = ?", (vid,))
+
+
+@router.get("/preview")
+def preview_next(employee_name: str = Query(...), category: str = Query(...), incident: str = Query(...)):
+    if category not in MATRIX_DATA or incident not in MATRIX_DATA[category]:
+        raise HTTPException(400, "Unknown category or incident")
+    color = _next_penalty(employee_name, category, incident)
+    meta = MATRIX_DATA[category][incident]
+    return {"penalty_color": color, "penalty": PENALTY_MAP[color], "escalation": meta["escalation"], "reset": meta["reset"]}

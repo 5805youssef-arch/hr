@@ -1,2 +1,11 @@
 /penalties_log.xlsx
 __pycache__/
+*.pyc
+*.db
+.venv/
+venv/
+
+# frontend
+node_modules/
+dist/
+.vite/
