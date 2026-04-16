@@ -23,6 +23,19 @@ export default function LogViolation({ lang }) {
   const [guideOpen, setGuideOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState(null);
+  const [proof, setProof] = useState({ name: "", dataUrl: "" });
+
+  function onProofChange(e) {
+    const file = e.target.files?.[0];
+    if (!file) { setProof({ name: "", dataUrl: "" }); return; }
+    if (file.size > 5 * 1024 * 1024) {
+      setMsg({ type: "err", text: ar ? "\u0627\u0644\u062D\u062C\u0645 \u0623\u0643\u0628\u0631 \u0645\u0646 5MB" : "File exceeds 5MB" });
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => setProof({ name: file.name, dataUrl: reader.result });
+    reader.readAsDataURL(file);
+  }
 
   useEffect(() => {
     api.matrix().then((m) => {
@@ -54,15 +67,18 @@ export default function LogViolation({ lang }) {
     setSaving(true);
     setMsg(null);
     try {
+      const proofB64 = proof.dataUrl ? proof.dataUrl.split(",")[1] || "" : "";
       const payload = {
         employee_name: emp, category: cat, incident: inc,
         submitted_by: rep, comment,
         force_investigation: force,
         override_days: override >= 0 ? Number(override) : null,
+        proof_image: proofB64,
       };
       const v = await api.createViolation(payload);
       setMsg({ type: "ok", text: `${v.penalty_color} \u2014 ${v.deduction_days} ${t("days")}` });
       setComment(""); setForce(false); setOverride(-1);
+      setProof({ name: "", dataUrl: "" });
     } catch (e) {
       setMsg({ type: "err", text: e.message });
     } finally {
@@ -128,7 +144,19 @@ export default function LogViolation({ lang }) {
             </FG>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginBottom: 20 }}>
-            <div />
+            <FG label={t("proof")}>
+              <label style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", borderRadius: S.r2, border: `1.5px dashed ${S.g300}`, cursor: "pointer", background: S.g50, fontSize: 13, color: S.g500 }}>
+                {IC.upload}
+                <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{proof.name || (ar ? "\u0627\u062E\u062A\u0631 \u0635\u0648\u0631\u0629..." : "Choose image...")}</span>
+                <input type="file" accept="image/*" onChange={onProofChange} style={{ display: "none" }} />
+              </label>
+              {proof.dataUrl && (
+                <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 8 }}>
+                  <img src={proof.dataUrl} alt="proof" style={{ width: 56, height: 56, objectFit: "cover", borderRadius: S.r2, border: `1px solid ${S.g200}` }} />
+                  <button type="button" onClick={() => setProof({ name: "", dataUrl: "" })} style={{ fontSize: 11, padding: "4px 10px", borderRadius: S.r2, border: `1px solid ${S.g200}`, background: S.w, color: S.err, cursor: "pointer", fontFamily: "inherit" }}>{t("del")}</button>
+                </div>
+              )}
+            </FG>
             <FG label={t("dedOver")}>
               <input style={inp} type="number" value={override} step="0.5" onChange={(e) => setOverride(parseFloat(e.target.value))} />
             </FG>
