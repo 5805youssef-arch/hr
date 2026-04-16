@@ -22,6 +22,7 @@ import re
 import sqlite3
 import base64
 import io
+import json
 from contextlib import contextmanager
 from datetime import date, datetime, timedelta
 
@@ -33,14 +34,8 @@ from email.mime.text import MIMEText
 from email.mime.image import MIMEImage
 
 import streamlit as st
-
-# Optional Google Sheets support — app works fine if package not installed
-try:
-    import gspread
-    from google.oauth2.service_account import Credentials as _GCPCredentials
-    _GSHEETS_AVAILABLE = True
-except ImportError:
-    _GSHEETS_AVAILABLE = False
+import gspread
+from google.oauth2.service_account import Credentials
 
 # ─────────────────────────────────────────────────────────────
 # PAGE CONFIG  (must be the very first Streamlit call)
@@ -52,281 +47,351 @@ st.set_page_config(
 )
 
 # ─────────────────────────────────────────────────────────────
-# BRAND THEME  — Travel Gate (teal #3ECAC0 · orange #F47B3A)
+# BRAND THEME  — Travel Gate KSA (teal #2FB89E · orange #E8825C)
 # ─────────────────────────────────────────────────────────────
 st.markdown("""
 <style>
-/* ── Google Font ───────────────────────────────────────────── */
-@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&family=Inter:wght@400;500;600;700&display=swap');
+/* ── Google Fonts ─────────────────────────────────────────── */
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700;9..40,800&family=Noto+Sans+Arabic:wght@400;500;600;700;800&display=swap');
 
-/* ── Root variables ─────────────────────────────────────────── */
+/* ── Design tokens ───────────────────────────────────────── */
 :root {
-    --tg-teal:        #3ECAC0;
-    --tg-teal-dark:   #2AADA3;
-    --tg-teal-light:  #E8FAF9;
-    --tg-orange:      #F47B3A;
-    --tg-orange-dark: #D9621F;
-    --tg-white:       #FFFFFF;
-    --tg-bg:          #F5FAFA;
-    --tg-card:        #FFFFFF;
-    --tg-border:      #D0F0EE;
-    --tg-text:        #1C2B2A;
-    --tg-muted:       #5E7A78;
-    --radius:         10px;
+  --pri:    #2FB89E;
+  --priD:   #1A9E85;
+  --priL:   #E6F7F3;
+  --priM:   #A8DDD2;
+  --acc:    #E8825C;
+  --accD:   #C96A45;
+  --accL:   #FFF0EA;
+  --bg:     #F5F7FA;
+  --card:   #FFFFFF;
+  --g50:    #F5F7FA;
+  --g100:   #ECEEF2;
+  --g200:   #D9DDE4;
+  --g300:   #B8C0CB;
+  --g400:   #8896A5;
+  --g500:   #5C6B7A;
+  --g600:   #3E4F5E;
+  --g700:   #273545;
+  --g800:   #131E2B;
+  --ok:     #16A34A; --okL: #ECFDF5;
+  --warn:   #D97706; --warnL: #FFFBEB;
+  --err:    #DC2626; --errL: #FEF2F2;
+  --info:   #2563EB; --infoL: #EFF6FF;
+  --pY:     #D97706; --pYB: #FFF7E6;
+  --pO:     #EA580C; --pOB: #FFF4ED;
+  --pR:     #DC2626; --pRB: #FEF2F2;
+  --pK:     #1E293B; --pKB: #F1F5F9;
+  --pI:     #7C3AED; --pIB: #F5F3FF;
+  --sh1:    0 1px 4px rgba(0,0,0,.06), 0 2px 8px rgba(0,0,0,.04);
+  --sh2:    0 4px 16px rgba(0,0,0,.08);
+  --r2:     10px;
+  --r3:     14px;
+  --tr:     all .18s cubic-bezier(.4,0,.2,1);
 }
 
-/* ── Global reset ───────────────────────────────────────────── */
+/* ── Global body ─────────────────────────────────────────── */
 html, body, [class*="css"] {
-    font-family: 'Inter', 'Cairo', sans-serif;
-    background-color: var(--tg-bg) !important;
-    color: var(--tg-text) !important;
+  font-family: 'DM Sans', 'Segoe UI', sans-serif !important;
+}
+body { background: var(--bg); color: var(--g700); }
+
+/* ── Hide default top decoration bar ────────────────────── */
+[data-testid="stDecoration"]  { display: none; }
+
+/* ── Top toolbar background ─────────────────────────────── */
+[data-testid="stHeader"] {
+  background: var(--card) !important;
+  border-bottom: 2px solid var(--pri);
 }
 
-/* ── Hide default Streamlit chrome ──────────────────────────── */
-#MainMenu, footer, header { visibility: hidden; }
-.block-container { padding-top: 0 !important; }
-
-/* ── Top brand bar ──────────────────────────────────────────── */
-.tg-topbar {
-    background: linear-gradient(135deg, #3ECAC0 0%, #2AADA3 100%);
-    padding: 18px 32px;
-    border-radius: 0 0 16px 16px;
-    margin: -1rem -1rem 1.5rem -1rem;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    box-shadow: 0 4px 20px rgba(62,202,192,.35);
-}
-.tg-topbar .brand-left { display: flex; align-items: center; gap: 16px; }
-.tg-logo-circle {
-    width: 52px; height: 52px;
-    background: white;
-    border-radius: 50%;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 26px;
-    box-shadow: 0 2px 8px rgba(0,0,0,.15);
-}
-.tg-brand-name {
-    font-family: 'Inter', sans-serif;
-    font-weight: 900;
-    font-size: 1.5rem;
-    color: white;
-    letter-spacing: 1px;
-    line-height: 1.1;
-}
-.tg-brand-sub {
-    font-family: 'Cairo', sans-serif;
-    font-weight: 400;
-    font-size: 0.85rem;
-    color: rgba(255,255,255,.85);
-}
-.tg-badge {
-    background: var(--tg-orange);
-    color: white;
-    padding: 4px 14px;
-    border-radius: 20px;
-    font-size: 0.78rem;
-    font-weight: 600;
-    letter-spacing: .5px;
+/* ── Main content area ───────────────────────────────────── */
+.main .block-container {
+  padding-top: 1.5rem !important;
+  padding-bottom: 3rem !important;
+  max-width: 1280px !important;
 }
 
-/* ── Tabs ───────────────────────────────────────────────────── */
+/* ── Page title (h1) ─────────────────────────────────────── */
+h1 {
+  font-size: 1.7rem !important;
+  font-weight: 800 !important;
+  color: var(--g800) !important;
+  letter-spacing: -0.5px;
+  margin-bottom: .25rem !important;
+}
+
+/* ── Section headings ────────────────────────────────────── */
+h2 {
+  font-size: 1.2rem !important;
+  font-weight: 700 !important;
+  color: var(--g700) !important;
+  padding-left: 12px;
+  border-left: 4px solid var(--pri);
+  margin-top: 1rem !important;
+}
+h3 {
+  font-size: 1.05rem !important;
+  font-weight: 700 !important;
+  color: var(--g700) !important;
+}
+
+/* ── Tabs ────────────────────────────────────────────────── */
 .stTabs [data-baseweb="tab-list"] {
-    gap: 6px;
-    background: var(--tg-card);
-    border-radius: var(--radius);
-    padding: 6px;
-    border: 1px solid var(--tg-border);
-    box-shadow: 0 2px 8px rgba(62,202,192,.1);
+  background: var(--card);
+  border-radius: var(--r3);
+  padding: 5px 6px;
+  gap: 4px;
+  box-shadow: var(--sh1);
+  border: 1px solid var(--g100);
+  margin-bottom: .5rem;
 }
 .stTabs [data-baseweb="tab"] {
-    border-radius: 8px;
-    padding: 10px 24px;
-    font-weight: 600;
-    font-size: 0.9rem;
-    color: var(--tg-muted) !important;
-    background: transparent !important;
-    border: none !important;
-    transition: all .2s ease;
+  border-radius: var(--r2) !important;
+  padding: 9px 22px !important;
+  font-size: .85rem !important;
+  font-weight: 600 !important;
+  color: var(--g500) !important;
+  background: transparent !important;
+  border: none !important;
+  transition: var(--tr);
 }
 .stTabs [data-baseweb="tab"]:hover {
-    color: var(--tg-teal) !important;
-    background: var(--tg-teal-light) !important;
+  color: var(--pri) !important;
+  background: var(--priL) !important;
 }
 .stTabs [aria-selected="true"] {
-    background: linear-gradient(135deg, var(--tg-teal) 0%, var(--tg-teal-dark) 100%) !important;
-    color: white !important;
-    box-shadow: 0 4px 12px rgba(62,202,192,.4);
+  background: var(--pri) !important;
+  color: #fff !important;
+  box-shadow: 0 2px 8px rgba(47,184,158,.35) !important;
 }
-.stTabs [data-baseweb="tab-highlight"] { display: none; }
-.stTabs [data-baseweb="tab-border"]    { display: none; }
 
-/* ── Buttons ────────────────────────────────────────────────── */
+/* ── KPI Metric cards ────────────────────────────────────── */
+[data-testid="metric-container"] {
+  background: var(--card) !important;
+  border: 1px solid var(--g100) !important;
+  border-radius: var(--r3) !important;
+  padding: 16px 20px !important;
+  box-shadow: var(--sh1) !important;
+  border-top: 3px solid var(--pri) !important;
+}
+[data-testid="stMetricLabel"] > div {
+  font-size: .72rem !important;
+  font-weight: 600 !important;
+  color: var(--g500) !important;
+  text-transform: uppercase;
+  letter-spacing: .6px;
+}
+[data-testid="stMetricValue"] > div {
+  font-size: 2rem !important;
+  font-weight: 800 !important;
+  color: var(--pri) !important;
+}
+
+/* ── Primary buttons ─────────────────────────────────────── */
 .stButton > button {
-    background: linear-gradient(135deg, var(--tg-teal) 0%, var(--tg-teal-dark) 100%);
-    color: white !important;
-    border: none;
-    border-radius: 8px;
-    padding: 10px 22px;
-    font-weight: 600;
-    font-size: 0.9rem;
-    box-shadow: 0 3px 10px rgba(62,202,192,.35);
-    transition: all .2s ease;
-    cursor: pointer;
+  border-radius: var(--r2) !important;
+  font-weight: 600 !important;
+  font-size: .85rem !important;
+  padding: 8px 22px !important;
+  border: none !important;
+  background: var(--pri) !important;
+  color: #fff !important;
+  transition: var(--tr) !important;
+  box-shadow: 0 1px 3px rgba(0,0,0,.1) !important;
 }
-.stButton > button:hover {
-    background: linear-gradient(135deg, var(--tg-teal-dark) 0%, #1F8F87 100%);
-    box-shadow: 0 5px 16px rgba(62,202,192,.5);
-    transform: translateY(-1px);
+.stButton > button:hover:not([disabled]) {
+  background: var(--priD) !important;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(47,184,158,.4) !important;
 }
-.stButton > button:active { transform: translateY(0); }
-
-/* Submit / primary action button (full-width) */
-div[data-testid="stFormSubmitButton"] > button {
-    background: linear-gradient(135deg, var(--tg-orange) 0%, var(--tg-orange-dark) 100%) !important;
-    box-shadow: 0 4px 14px rgba(244,123,58,.4) !important;
-    width: 100%;
-    font-size: 1rem;
-    padding: 14px 22px;
-    border-radius: 10px;
-}
-div[data-testid="stFormSubmitButton"] > button:hover {
-    box-shadow: 0 6px 20px rgba(244,123,58,.55) !important;
-    transform: translateY(-2px);
+.stButton > button[disabled] {
+  background: var(--g200) !important;
+  color: var(--g400) !important;
+  cursor: not-allowed;
+  box-shadow: none !important;
 }
 
-/* ── Metric cards (KPI row) ─────────────────────────────────── */
-[data-testid="stMetric"] {
-    background: var(--tg-card);
-    border: 1px solid var(--tg-border);
-    border-top: 4px solid var(--tg-teal);
-    border-radius: var(--radius);
-    padding: 16px 20px;
-    box-shadow: 0 2px 8px rgba(62,202,192,.1);
+/* ── Download / accent buttons ───────────────────────────── */
+[data-testid="stDownloadButton"] > button,
+[data-testid="stLinkButton"] > a {
+  background: var(--acc) !important;
+  color: #fff !important;
+  border-radius: var(--r2) !important;
+  font-weight: 600 !important;
 }
-[data-testid="stMetric"] label {
-    color: var(--tg-muted) !important;
-    font-size: 0.8rem !important;
-    font-weight: 600 !important;
-    text-transform: uppercase;
-    letter-spacing: .5px;
-}
-[data-testid="stMetricValue"] {
-    color: var(--tg-teal-dark) !important;
-    font-size: 2rem !important;
-    font-weight: 700 !important;
+[data-testid="stDownloadButton"] > button:hover,
+[data-testid="stLinkButton"] > a:hover {
+  background: var(--accD) !important;
+  box-shadow: 0 4px 14px rgba(232,130,92,.4) !important;
 }
 
-/* ── Text inputs & selects ──────────────────────────────────── */
-input, textarea, select,
-[data-baseweb="input"] input,
-[data-baseweb="textarea"] textarea,
-[data-baseweb="select"] {
-    border-radius: 8px !important;
-    border-color: var(--tg-border) !important;
-    background: white !important;
-    transition: border-color .2s ease, box-shadow .2s ease;
-}
-input:focus, textarea:focus {
-    border-color: var(--tg-teal) !important;
-    box-shadow: 0 0 0 3px rgba(62,202,192,.2) !important;
-    outline: none !important;
+/* ── Form containers ─────────────────────────────────────── */
+[data-testid="stForm"] {
+  background: var(--card) !important;
+  border-radius: var(--r3) !important;
+  padding: 20px 24px !important;
+  border: 1px solid var(--g100) !important;
+  box-shadow: var(--sh1) !important;
 }
 
-/* ── Expanders ──────────────────────────────────────────────── */
+/* ── Expanders ───────────────────────────────────────────── */
 [data-testid="stExpander"] {
-    background: var(--tg-card);
-    border: 1px solid var(--tg-border) !important;
-    border-radius: var(--radius) !important;
-    box-shadow: 0 2px 6px rgba(62,202,192,.07);
+  background: var(--card) !important;
+  border-radius: var(--r3) !important;
+  border: 1px solid var(--g100) !important;
+  box-shadow: var(--sh1) !important;
+  overflow: hidden;
 }
 [data-testid="stExpander"] summary {
-    font-weight: 600;
-    color: var(--tg-teal-dark) !important;
-    padding: 12px 16px;
+  font-weight: 600 !important;
+  color: var(--g700) !important;
+  font-size: .9rem !important;
+  padding: 12px 16px !important;
 }
-[data-testid="stExpander"] summary:hover { color: var(--tg-teal) !important; }
-
-/* ── Alerts ─────────────────────────────────────────────────── */
-[data-testid="stAlert"][kind="info"]    { background: #E8FAF9; border-color: var(--tg-teal); }
-[data-testid="stAlert"][kind="success"] { background: #EAFAF1; border-color: #27AE60; }
-[data-testid="stAlert"][kind="warning"] { background: #FFF4EC; border-color: var(--tg-orange); }
-[data-testid="stAlert"][kind="error"]   { background: #FDEDED; border-color: #C0392B; }
-
-/* ── Dataframes ─────────────────────────────────────────────── */
-[data-testid="stDataFrame"] {
-    border-radius: var(--radius) !important;
-    overflow: hidden;
-    border: 1px solid var(--tg-border) !important;
-    box-shadow: 0 2px 8px rgba(62,202,192,.08);
-}
-[data-testid="stDataFrame"] thead tr th {
-    background: linear-gradient(135deg, var(--tg-teal) 0%, var(--tg-teal-dark) 100%) !important;
-    color: white !important;
-    font-weight: 700 !important;
-    font-size: 0.82rem !important;
-    letter-spacing: .4px;
+[data-testid="stExpander"] summary:hover {
+  background: var(--priL) !important;
 }
 
-/* ── Form containers ────────────────────────────────────────── */
-[data-testid="stForm"] {
-    background: var(--tg-card);
-    border: 1px solid var(--tg-border);
-    border-radius: 12px;
-    padding: 20px 24px;
-    box-shadow: 0 2px 10px rgba(62,202,192,.08);
+/* ── Alert boxes ─────────────────────────────────────────── */
+[data-testid="stAlert"] [data-testid="stMarkdownContainer"] {
+  font-size: .875rem !important;
+}
+div[data-testid="stAlert"][kind="info"],
+div.stInfo {
+  border-left: 4px solid var(--pri) !important;
+  background: var(--priL) !important;
+  border-radius: 0 var(--r2) var(--r2) 0 !important;
+}
+div[data-testid="stAlert"][kind="success"],
+div.stSuccess {
+  border-left: 4px solid var(--ok) !important;
+  background: var(--okL) !important;
+  border-radius: 0 var(--r2) var(--r2) 0 !important;
+}
+div[data-testid="stAlert"][kind="warning"],
+div.stWarning {
+  border-left: 4px solid var(--warn) !important;
+  background: var(--warnL) !important;
+  border-radius: 0 var(--r2) var(--r2) 0 !important;
+}
+div[data-testid="stAlert"][kind="error"],
+div.stError {
+  border-left: 4px solid var(--err) !important;
+  background: var(--errL) !important;
+  border-radius: 0 var(--r2) var(--r2) 0 !important;
 }
 
-/* ── Dividers ───────────────────────────────────────────────── */
-hr { border-color: var(--tg-border) !important; }
-
-/* ── Section headings ───────────────────────────────────────── */
-h1 { color: var(--tg-teal-dark) !important; font-weight: 800 !important; }
-h2 { color: var(--tg-teal-dark) !important; font-weight: 700 !important; font-size: 1.25rem !important; }
-h3 { color: var(--tg-teal-dark) !important; font-weight: 600 !important; }
-
-/* ── Download button ────────────────────────────────────────── */
-[data-testid="stDownloadButton"] > button {
-    background: linear-gradient(135deg, #2ECC71 0%, #27AE60 100%) !important;
-    box-shadow: 0 4px 12px rgba(46,204,113,.35) !important;
+/* ── Dataframes ──────────────────────────────────────────── */
+[data-testid="stDataFrame"] > div {
+  border-radius: var(--r3) !important;
+  overflow: hidden !important;
+  border: 1px solid var(--g100) !important;
+  box-shadow: var(--sh1) !important;
 }
 
-/* ── Selectbox ──────────────────────────────────────────────── */
-[data-baseweb="select"] > div {
-    border-radius: 8px !important;
-    border-color: var(--tg-border) !important;
-    background: white !important;
+/* ── Select boxes / Text inputs ──────────────────────────── */
+[data-testid="stSelectbox"] > div > div,
+[data-testid="stTextInput"] > div > div > input,
+[data-testid="stTextArea"] textarea,
+[data-testid="stNumberInput"] input {
+  border-radius: var(--r2) !important;
+  border: 1px solid var(--g200) !important;
+  background: var(--card) !important;
+  font-size: .875rem !important;
+  transition: border-color .15s !important;
+}
+[data-testid="stTextInput"] > div > div > input:focus,
+[data-testid="stTextArea"] textarea:focus,
+[data-testid="stNumberInput"] input:focus {
+  border-color: var(--pri) !important;
+  box-shadow: 0 0 0 3px rgba(47,184,158,.15) !important;
 }
 
-/* ── Checkbox ───────────────────────────────────────────────── */
-[data-baseweb="checkbox"] span[aria-checked="true"] > div {
-    background: var(--tg-teal) !important;
-    border-color: var(--tg-teal) !important;
+/* ── File uploader ───────────────────────────────────────── */
+[data-testid="stFileUploadDropzone"] {
+  border: 2px dashed var(--priM) !important;
+  border-radius: var(--r3) !important;
+  background: var(--priL) !important;
+  transition: var(--tr) !important;
+}
+[data-testid="stFileUploadDropzone"]:hover {
+  border-color: var(--pri) !important;
+  background: #d4f0ea !important;
 }
 
-/* ── Number input ───────────────────────────────────────────── */
-[data-testid="stNumberInput"] button {
-    background: var(--tg-teal-light) !important;
-    color: var(--tg-teal-dark) !important;
-    border-color: var(--tg-border) !important;
+/* ── Checkbox ────────────────────────────────────────────── */
+[data-testid="stCheckbox"] span {
+  font-size: .875rem !important;
+  color: var(--g600) !important;
 }
 
-/* ── File uploader ──────────────────────────────────────────── */
-[data-testid="stFileUploader"] {
-    background: var(--tg-teal-light) !important;
-    border: 2px dashed var(--tg-teal) !important;
-    border-radius: var(--radius) !important;
-    padding: 12px !important;
+/* ── Divider ─────────────────────────────────────────────── */
+hr {
+  border-color: var(--g100) !important;
+  margin: 1.25rem 0 !important;
 }
 
-/* ── Plotly charts ──────────────────────────────────────────── */
-.js-plotly-plot .plotly .modebar { display: none; }
+/* ── Date input ──────────────────────────────────────────── */
+[data-testid="stDateInput"] input {
+  border-radius: var(--r2) !important;
+  border: 1px solid var(--g200) !important;
+}
 
-/* ── Scrollbar ──────────────────────────────────────────────── */
-::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: var(--tg-teal-light); }
-::-webkit-scrollbar-thumb { background: var(--tg-teal); border-radius: 4px; }
-::-webkit-scrollbar-thumb:hover { background: var(--tg-teal-dark); }
+/* ── Language toggle button (top-right) ──────────────────── */
+/* targets the first button in the last column of the lang row */
+[data-testid="stHorizontalBlock"]:first-of-type .stButton > button {
+  background: var(--g100) !important;
+  color: var(--g700) !important;
+  font-size: .78rem !important;
+  font-weight: 700 !important;
+  padding: 5px 12px !important;
+  border-radius: 99px !important;
+  box-shadow: none !important;
+}
+[data-testid="stHorizontalBlock"]:first-of-type .stButton > button:hover {
+  background: var(--priL) !important;
+  color: var(--pri) !important;
+  transform: none;
+  box-shadow: none !important;
+}
+
+/* ── Penalty badge colors (used in captions / markdown) ─── */
+.badge-yellow      { background:var(--pYB); color:var(--pY);  padding:2px 8px; border-radius:99px; font-weight:700; font-size:.78rem; }
+.badge-orange      { background:var(--pOB); color:var(--pO);  padding:2px 8px; border-radius:99px; font-weight:700; font-size:.78rem; }
+.badge-red         { background:var(--pRB); color:var(--pR);  padding:2px 8px; border-radius:99px; font-weight:700; font-size:.78rem; }
+.badge-black       { background:var(--pKB); color:var(--pK);  padding:2px 8px; border-radius:99px; font-weight:700; font-size:.78rem; }
+.badge-investigate { background:var(--pIB); color:var(--pI);  padding:2px 8px; border-radius:99px; font-weight:700; font-size:.78rem; }
+
+/* ── Brand strip ─────────────────────────────────────────── */
+.tg-brand-strip {
+  display:flex; align-items:center; gap:12px;
+  background: linear-gradient(135deg, var(--pri) 0%, var(--priD) 100%);
+  color: #fff; padding: 12px 20px; border-radius: var(--r3);
+  margin-bottom: 1rem; box-shadow: var(--sh2);
+}
+.tg-brand-strip .logo {
+  width: 40px; height: 40px;
+  background: rgba(255,255,255,.2);
+  border-radius: 10px;
+  display:flex; align-items:center; justify-content:center;
+  font-size: 1.2rem; font-weight: 900;
+}
+.tg-brand-strip .brand-text { line-height:1.2; }
+.tg-brand-strip .brand-text .name { font-size:1.05rem; font-weight:800; }
+.tg-brand-strip .brand-text .sub  { font-size:.72rem; opacity:.85; }
+
+/* ── RTL support ─────────────────────────────────────────── */
+body.rtl, body.rtl * {
+  direction: rtl !important;
+  font-family: 'Noto Sans Arabic', 'Segoe UI', sans-serif !important;
+}
+body.rtl h2 {
+  padding-left: 0 !important;
+  padding-right: 12px !important;
+  border-left: none !important;
+  border-right: 4px solid var(--pri) !important;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -401,6 +466,10 @@ ARABIC_DICT = {
     "Record": "سجل",
     "deleted.": "تم حذفه.",
     "No violations logged yet.": "لم يتم تسجيل أي مخالفات بعد.",
+    "I confirm I want to permanently delete this employee": "أؤكد رغبتي في حذف هذا الموظف نهائياً",
+    "I confirm I want to permanently delete this violation record": "أؤكد رغبتي في حذف هذا السجل نهائياً",
+    "Record not found. Please refresh the page.": "السجل غير موجود. يرجى تحديث الصفحة.",
+    "⚠️ Employee not found. Please refresh the page.": "⚠️ الموظف غير موجود. يرجى تحديث الصفحة.",
     # Image Viewer UI
     "🖼️ View Proof Image": "🖼️ عرض صورة الإثبات",
     "Select Record ID to view proof:": "اختر رقم السجل لعرض الصورة:",
@@ -446,8 +515,41 @@ ARABIC_DICT = {
     "Count": "العدد",
     "Active Freeze": "تجميد نشط",
     "📥 Export Filtered Report (Excel)": "📥 تصدير التقرير (إكسيل)",
+    "📤 Upload to Google Sheets": "📤 رفع إلى جداول بيانات Google",
+    "Upload Service Account JSON Key": "رفع مفتاح JSON لحساب الخدمة",
+    "Google Sheet Name (optional)": "اسم جدول البيانات (اختياري)",
+    "e.g. HR Report April 2026": "مثال: تقرير الموارد البشرية أبريل 2026",
+    "✅ Report successfully uploaded to Google Sheets!": "✅ تم رفع التقرير إلى جداول بيانات Google بنجاح!",
+    "🔗 Open Google Sheet": "🔗 فتح جدول البيانات",
+    "❌ Upload failed: ": "❌ فشل الرفع: ",
+    "⚠️ Please upload a Service Account JSON key to enable Google Sheets export.": "⚠️ يرجى رفع مفتاح JSON لحساب الخدمة لتمكين التصدير إلى Google Sheets.",
     "Yes": "نعم",
     "No": "لا",
+
+    # Tab 4: Rules Management
+    "📐 Rules Management": "📐 إدارة القواعد",
+    "📐 Penalty Rules Management": "📐 إدارة قواعد العقوبات",
+    "Current Rules": "القواعد الحالية",
+    "Edit / Add Rule": "تعديل / إضافة قاعدة",
+    "Select Rule to Edit": "اختر القاعدة للتعديل",
+    "— new rule —": "— قاعدة جديدة —",
+    "Category *": "التصنيف *",
+    "Incident Name *": "اسم الخطأ *",
+    "Description": "الوصف",
+    "HR Note": "ملاحظة HR",
+    "Reset Window (days)": "فترة إعادة الضبط (أيام)",
+    "Escalation Steps (comma-separated)": "خطوات التصعيد (مفصولة بفاصلة)",
+    "e.g. Yellow,Yellow,Orange,Red,Black,Investigation": "مثال: Yellow,Yellow,Orange,Red,Black,Investigation",
+    "💾 Save Rule": "💾 حفظ القاعدة",
+    "🗑️ Delete Rule": "🗑️ حذف القاعدة",
+    "⚠️ Category and Incident Name are required.": "⚠️ التصنيف واسم الخطأ مطلوبان.",
+    "⚠️ Invalid escalation steps. Use colors: Yellow, Orange, Red, Black, Investigation": "⚠️ خطوات التصعيد غير صحيحة. استخدم: Yellow, Orange, Red, Black, Investigation",
+    "✅ Rule saved.": "✅ تم حفظ القاعدة.",
+    "✅ Rule deleted.": "✅ تم حذف القاعدة.",
+    "I confirm I want to permanently delete this rule": "أؤكد أنني أريد حذف هذه القاعدة نهائياً",
+    "ID": "الرقم",
+    "Reset Days": "أيام الإعادة",
+    "Escalation": "التصعيد",
 
     # Categories & Incidents
     "Attendance & Adherence": "الحضور والالتزام",
@@ -495,40 +597,6 @@ ARABIC_DICT = {
     "Performance Alert — 2 Days Deduction": "إنذار أداء — خصم يومين",
     "Performance Warning — 4 Days Deduction + 3-Month Freeze": "تحذير نهائي — خصم 4 أيام + تجميد 3 شهور",
     "Suspended — Transferred to Investigation on Spot": "إيقاف — تحويل للتحقيق الفوري",
-
-    # Tab 4: Rules Management
-    "📜 Rules Management": "📜 إدارة القواعد",
-    "📜 Rules & Escalation Management": "📜 إدارة القواعد والتصعيد",
-    "Add, edit, or delete violation rules. Changes take effect immediately on new violations.": "إضافة أو تعديل أو حذف قواعد المخالفات. التغييرات تسري فوراً على المخالفات الجديدة.",
-    "Current Rules": "القواعد الحالية",
-    "Description": "الوصف",
-    "Reset (days)": "فترة السماح (أيام)",
-    "Escalation Path": "مسار التصعيد",
-    "Select Rule ID to delete:": "اختر رقم القاعدة للحذف:",
-    "🗑️ Delete Rule": "🗑️ حذف القاعدة",
-    "Rule": "القاعدة",
-    "Select Rule ID to edit:": "اختر رقم القاعدة للتعديل:",
-    "✏️ Load Rule for Editing": "✏️ تحميل القاعدة للتعديل",
-    "No rules configured yet. Use the form below to add the first rule.": "لا توجد قواعد بعد. استخدم النموذج أدناه لإضافة أول قاعدة.",
-    "Edit Rule": "تعديل القاعدة",
-    "Add New Rule": "إضافة قاعدة جديدة",
-    "Rule not found. It may have been deleted.": "لم يتم العثور على القاعدة. ربما تم حذفها.",
-    "Category *": "التصنيف *",
-    "Incident Name *": "اسم المخالفة *",
-    "Reset Period (days) *": "فترة السماح (أيام) *",
-    "HR Note (Optional)": "ملاحظة HR (اختياري)",
-    "Escalation Path": "مسار التصعيد",
-    "Select penalty levels in order (1st offense → last)": "اختر مستويات العقوبة بالترتيب (أول مخالفة ← آخر مخالفة)",
-    "Number of escalation steps": "عدد مراحل التصعيد",
-    "💾 Save Rule": "💾 حفظ القاعدة",
-    "💾 Update Rule": "💾 تحديث القاعدة",
-    "Category is required.": "التصنيف مطلوب.",
-    "Incident Name is required.": "اسم المخالفة مطلوب.",
-    "At least one escalation step is required.": "مطلوب مرحلة تصعيد واحدة على الأقل.",
-    "Rule updated successfully.": "تم تحديث القاعدة بنجاح.",
-    "Rule added successfully.": "تمت إضافة القاعدة بنجاح.",
-    "❌ Cancel Editing": "❌ إلغاء التعديل",
-    "⚠️ No rules configured. Please add rules in the **Rules Management** tab first.": "⚠️ لا توجد قواعد. يرجى إضافة قواعد من تبويب **إدارة القواعد** أولاً.",
 }
 
 def _t(text: str) -> str:
@@ -545,32 +613,15 @@ def _t(text: str) -> str:
             days_part = text.split(" Card — ")[1].split(" ")[0]
             color_ar = ARABIC_DICT.get(color_part, color_part)
             return f"إنذار {color_ar} — خصم {days_part} أيام (تعديل يدوي)"
-        except (IndexError, ValueError, AttributeError):
-            pass  # Fallback to untranslated string
+        except:
+            pass # Fallback
             
     return ARABIC_DICT.get(text, text)
 
-# ── Brand top-bar with language toggle ──────────────────────
-_lang_label = "🌐 عربي" if st.session_state.lang == "en" else "🌐 EN"
-_sys_label  = "نظام إدارة الإنذارات" if st.session_state.lang == "ar" else "HR Disciplinary System"
-
-_tb_col, _btn_col = st.columns([11, 1])
-with _tb_col:
-    st.markdown(f"""
-    <div class="tg-topbar">
-        <div class="brand-left">
-            <div class="tg-logo-circle">✈️</div>
-            <div>
-                <div class="tg-brand-name">TRAVEL GATE</div>
-                <div class="tg-brand-sub">ترزل جيت للسفر و السياحة &nbsp;|&nbsp; {_sys_label}</div>
-            </div>
-        </div>
-        <div class="tg-badge">⚖️ Disciplinary Portal</div>
-    </div>
-    """, unsafe_allow_html=True)
-with _btn_col:
-    st.markdown("<div style='margin-top:18px'></div>", unsafe_allow_html=True)
-    if st.button(_lang_label, use_container_width=True, key="lang_toggle"):
+# Language Toggle UI
+col_blank, col_lang = st.columns([9, 1])
+with col_lang:
+    if st.button("🌐 عربي/EN", use_container_width=True):
         st.session_state.lang = "ar" if st.session_state.lang == "en" else "en"
         st.rerun()
 
@@ -615,6 +666,22 @@ PENALTY_MAP: dict[str, dict] = {
         "badge":           "🔍",
     },
 }
+
+def _build_penalty_label(penalty_color: str, applied_days: float) -> str:
+    """Return the display/storage label for a penalty.
+
+    Uses the canonical label from PENALTY_MAP unless a custom deduction
+    override was applied (and the penalty is not Investigation).
+    """
+    p = PENALTY_MAP[penalty_color]
+    if (
+        applied_days is not None
+        and applied_days != p["deduction_days"]
+        and penalty_color != "Investigation"
+    ):
+        return f"{penalty_color} Card — {applied_days} Days Deduction (Override)"
+    return p["label"]
+
 
 MATRIX_DATA: dict[str, dict] = {
     "Attendance & Adherence": {
@@ -783,26 +850,11 @@ def _secret(key: str, default: str = "") -> str:
     except (KeyError, FileNotFoundError):
         return default
 
-SENDER_EMAIL      = _secret("EMAIL")
-SENDER_PASSWORD   = _secret("PASSWORD")
-HR_MANAGER_EMAIL  = _secret("HR_MANAGER_EMAIL", SENDER_EMAIL)
-HR_ADMIN_PASSWORD = _secret("HR_ADMIN_PASSWORD")
-if not HR_ADMIN_PASSWORD:
-    st.error(
-        "⚠️ HR_ADMIN_PASSWORD is not configured in secrets.toml. "
-        "Admin and Reports access is disabled until it is set."
-    )
-    HR_ADMIN_PASSWORD = "__UNSET__"   # ensures login always fails safely
-
-# Google Sheets (optional backup)
-GSHEETS_SPREADSHEET_ID = _secret("GSHEETS_SPREADSHEET_ID")
-
-def _gcp_service_account_info() -> dict | None:
-    """Return the [gcp_service_account] table from secrets, or None if absent."""
-    try:
-        return dict(st.secrets["gcp_service_account"])
-    except (KeyError, FileNotFoundError):
-        return None
+SENDER_EMAIL          = _secret("EMAIL")
+SENDER_PASSWORD       = _secret("PASSWORD")
+HR_MANAGER_EMAIL      = _secret("HR_MANAGER_EMAIL", SENDER_EMAIL)
+_USING_DEFAULT_PASS   = not bool(_secret("HR_ADMIN_PASSWORD"))
+HR_ADMIN_PASSWORD     = _secret("HR_ADMIN_PASSWORD", "admin123")
 
 
 # =============================================================
@@ -815,8 +867,6 @@ DB_FILE = "hr_system.db"
 def _db():
     conn = sqlite3.connect(DB_FILE, check_same_thread=False)
     conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA journal_mode=WAL")       # allow concurrent reads during writes
-    conn.execute("PRAGMA busy_timeout=5000")      # retry up to 5 s on locked DB
     try:
         yield conn
         conn.commit()
@@ -826,9 +876,14 @@ def _db():
     finally:
         conn.close()
 
+@st.cache_resource
 def init_db() -> None:
-    with _db() as conn:
-        conn.executescript("""
+    # Phase 1 — initial schema creation.
+    # executescript() issues an implicit COMMIT, so we keep it outside the
+    # _db() context manager to avoid masking its rollback semantics.
+    raw = sqlite3.connect(DB_FILE)
+    try:
+        raw.executescript("""
             CREATE TABLE IF NOT EXISTS employees (
                 id            INTEGER PRIMARY KEY AUTOINCREMENT,
                 name          TEXT    UNIQUE NOT NULL,
@@ -853,34 +908,53 @@ def init_db() -> None:
                 created_at      DATETIME NOT NULL
             );
 
-            CREATE INDEX IF NOT EXISTS idx_vio_employee ON violations(employee_name);
-            CREATE INDEX IF NOT EXISTS idx_vio_created  ON violations(created_at);
-            CREATE INDEX IF NOT EXISTS idx_vio_incident ON violations(incident);
-            CREATE INDEX IF NOT EXISTS idx_vio_penalty  ON violations(penalty_color);
-
             CREATE TABLE IF NOT EXISTS rules (
-                id               INTEGER PRIMARY KEY AUTOINCREMENT,
-                category         TEXT    NOT NULL,
-                incident         TEXT    NOT NULL,
-                description      TEXT    DEFAULT '',
-                hr_note          TEXT    DEFAULT '',
-                reset_days       INTEGER NOT NULL DEFAULT 30,
-                escalation_json  TEXT    NOT NULL DEFAULT '["Yellow"]',
-                UNIQUE(category, incident)
+                id              INTEGER PRIMARY KEY AUTOINCREMENT,
+                category        TEXT    NOT NULL,
+                incident        TEXT    NOT NULL,
+                description     TEXT    DEFAULT '',
+                hr_note         TEXT    DEFAULT '',
+                reset_days      INTEGER DEFAULT 90,
+                escalation_json TEXT    NOT NULL DEFAULT '[]'
             );
         """)
+    finally:
+        raw.close()
 
+    # Phase 2 — incremental column migrations (use _db() safely here).
+    with _db() as conn:
         existing_cols = {r[1] for r in conn.execute("PRAGMA table_info(violations)")}
-        
+
         if "submitted_by" not in existing_cols:
             conn.execute("ALTER TABLE violations ADD COLUMN submitted_by TEXT NOT NULL DEFAULT ''")
-            
+
         if "proof_image" not in existing_cols:
             conn.execute("ALTER TABLE violations ADD COLUMN proof_image TEXT NOT NULL DEFAULT ''")
 
-        col_types = {r[1]: r[2].upper() for r in conn.execute("PRAGMA table_info(violations)")}
+        # Seed rules table from MATRIX_DATA if empty (first run only)
+        count = conn.execute("SELECT COUNT(*) FROM rules").fetchone()[0]
+        if count == 0:
+            for cat, incidents in MATRIX_DATA.items():
+                for inc_name, meta in incidents.items():
+                    conn.execute(
+                        """INSERT OR IGNORE INTO rules
+                           (category, incident, description, hr_note, reset_days, escalation_json)
+                           VALUES (?, ?, ?, ?, ?, ?)""",
+                        (
+                            cat, inc_name,
+                            meta.get("details", ""),
+                            meta.get("hr_note", ""),
+                            meta["reset"],
+                            json.dumps(meta["escalation"]),
+                        ),
+                    )
+
+    # Phase 3 — deduction_days INTEGER → REAL migration (needs executescript again).
+    raw = sqlite3.connect(DB_FILE)
+    try:
+        col_types = {r[1]: r[2].upper() for r in raw.execute("PRAGMA table_info(violations)")}
         if col_types.get("deduction_days", "REAL") == "INTEGER":
-            conn.executescript("""
+            raw.executescript("""
                 ALTER TABLE violations RENAME TO violations_v1;
 
                 CREATE TABLE violations (
@@ -913,83 +987,8 @@ def init_db() -> None:
 
                 DROP TABLE violations_v1;
             """)
-
-        # Seed rules table from MATRIX_DATA if empty (first run only)
-        count = conn.execute("SELECT COUNT(*) FROM rules").fetchone()[0]
-        if count == 0:
-            import json as _json
-            for cat, incidents in MATRIX_DATA.items():
-                for inc_name, meta in incidents.items():
-                    conn.execute(
-                        """INSERT OR IGNORE INTO rules
-                           (category, incident, description, hr_note, reset_days, escalation_json)
-                           VALUES (?, ?, ?, ?, ?, ?)""",
-                        (
-                            cat, inc_name,
-                            meta.get("details", ""),
-                            meta.get("hr_note", ""),
-                            meta["reset"],
-                            _json.dumps(meta["escalation"]),
-                        ),
-                    )
-
-
-# ── Rules CRUD ────────────────────────────────────────────────
-
-import json as _json   # noqa: E402  (needed for escalation_json serialisation)
-
-def get_rules() -> pd.DataFrame:
-    with _db() as conn:
-        return pd.read_sql_query(
-            "SELECT * FROM rules ORDER BY category, incident", conn
-        )
-
-def get_matrix_from_rules() -> dict[str, dict]:
-    """Build MATRIX_DATA-format dict from the rules table."""
-    matrix: dict[str, dict] = {}
-    with _db() as conn:
-        rows = conn.execute("SELECT * FROM rules ORDER BY category, incident").fetchall()
-    for r in rows:
-        cat = r["category"]
-        inc = r["incident"]
-        matrix.setdefault(cat, {})[inc] = {
-            "reset":      r["reset_days"],
-            "escalation": _json.loads(r["escalation_json"]),
-            "details":    r["description"] or "",
-            "hr_note":    r["hr_note"] or "",
-        }
-    return matrix
-
-def save_rule(
-    category: str,
-    incident: str,
-    description: str,
-    hr_note: str,
-    reset_days: int,
-    escalation: list[str],
-    rule_id: int | None = None,
-) -> None:
-    esc_json = _json.dumps(escalation)
-    with _db() as conn:
-        if rule_id:
-            conn.execute(
-                """UPDATE rules
-                   SET category=?, incident=?, description=?, hr_note=?,
-                       reset_days=?, escalation_json=?
-                   WHERE id=?""",
-                (category, incident, description, hr_note, reset_days, esc_json, rule_id),
-            )
-        else:
-            conn.execute(
-                """INSERT INTO rules
-                   (category, incident, description, hr_note, reset_days, escalation_json)
-                   VALUES (?, ?, ?, ?, ?, ?)""",
-                (category, incident, description, hr_note, reset_days, esc_json),
-            )
-
-def delete_rule(rule_id: int) -> None:
-    with _db() as conn:
-        conn.execute("DELETE FROM rules WHERE id = ?", (rule_id,))
+    finally:
+        raw.close()
 
 
 def get_employees() -> pd.DataFrame:
@@ -1025,10 +1024,7 @@ def insert_violation(
     p = PENALTY_MAP[penalty_color]
     applied_deduction = override_days if override_days is not None and override_days >= 0 else p["deduction_days"]
     
-    if applied_deduction != p["deduction_days"] and penalty_color != "Investigation":
-        actual_label = f"{penalty_color} Card — {applied_deduction} Days Deduction (Override)"
-    else:
-        actual_label = p["label"]
+    actual_label = _build_penalty_label(penalty_color, applied_deduction)
         
     with _db() as conn:
         conn.execute(
@@ -1049,11 +1045,6 @@ def insert_violation(
 def delete_violation(vid: int) -> None:
     with _db() as conn:
         conn.execute("DELETE FROM violations WHERE id = ?", (vid,))
-
-_VIO_COLS = (
-    "id, employee_name, category, incident, penalty_color, penalty_label, "
-    "deduction_hours, deduction_days, freeze_months, comment, submitted_by, created_at"
-)
 
 def get_violations(
     employee:  str | None = None,
@@ -1082,7 +1073,7 @@ def get_violations(
         params.append(penalty)
 
     sql = (
-        f"SELECT {_VIO_COLS} FROM violations "
+        f"SELECT * FROM violations "
         f"WHERE {' AND '.join(clauses)} "
         f"ORDER BY created_at DESC"
     )
@@ -1096,120 +1087,67 @@ def get_violations(
 
     return df
 
-# =============================================================
-# SECTION 2.5 — GOOGLE SHEETS SYNC  (non-blocking, optional)
-# =============================================================
+# ── Rules CRUD ────────────────────────────────────────────────
 
-_VIO_SHEET_HEADERS = [
-    "ID", "Employee", "Category", "Incident", "Penalty", "Penalty Label",
-    "Deduction Hours", "Deduction Days", "Freeze Months",
-    "Comment", "Submitted By", "Date & Time",
-]
-_EMP_SHEET_HEADERS = ["ID", "Name", "Email", "Department", "Manager Email"]
-
-_SHEETS_SCOPES = [
-    "https://spreadsheets.google.com/feeds",
-    "https://www.googleapis.com/auth/drive",
-]
-
-
-@st.cache_resource(show_spinner=False)
-def _get_sheets_client():
-    """
-    Lazily initialise and cache a gspread client for the app's lifetime.
-    Returns None when: gspread not installed, credentials missing, or network error.
-    All callers treat None as 'Sheets not configured' — no exceptions propagate.
-    """
-    if not _GSHEETS_AVAILABLE:
-        return None
-    sa_info = _gcp_service_account_info()
-    if not sa_info or not GSHEETS_SPREADSHEET_ID:
-        return None
-    try:
-        creds = _GCPCredentials.from_service_account_info(sa_info, scopes=_SHEETS_SCOPES)
-        return gspread.authorize(creds)
-    except Exception:
-        return None
-
-
-def _sheets_append_violation(row: list) -> None:
-    """
-    Append one violation row to the 'Violations' worksheet.
-    row = [id, employee, category, incident, penalty_color, penalty_label,
-           deduction_hours, deduction_days, freeze_months, comment,
-           submitted_by, created_at]
-    Silently skips (st.warning only) on any error — never blocks the main flow.
-    """
-    try:
-        client = _get_sheets_client()
-        if client is None:
-            return
-        ws = client.open_by_key(GSHEETS_SPREADSHEET_ID).worksheet("Violations")
-        ws.append_row(row, value_input_option="USER_ENTERED")
-    except Exception as exc:
-        st.warning(f"☁️ Google Sheets sync skipped: {exc}")
-
-
-def _sheets_full_sync() -> tuple[bool, str]:
-    """
-    Overwrite both 'Violations' and 'Employees' sheets with all current SQLite data.
-    Returns (True, success_msg) or (False, error_msg).
-    proof_image is intentionally excluded (binary, irrelevant in a sheet).
-    """
-    try:
-        client = _get_sheets_client()
-        if client is None:
-            return False, (
-                "Google Sheets is not configured. "
-                "Add GSHEETS_SPREADSHEET_ID and [gcp_service_account] to secrets.toml."
-            )
-        sh = client.open_by_key(GSHEETS_SPREADSHEET_ID)
-
-        # ── Violations sheet ──────────────────────────────────
-        vio_df = get_violations()
-        ws_vio = sh.worksheet("Violations")
-        ws_vio.clear()
-        ws_vio.update([_VIO_SHEET_HEADERS], "A1")
-        if not vio_df.empty:
-            _vio_cols = [
-                "id", "employee_name", "category", "incident",
-                "penalty_color", "penalty_label", "deduction_hours",
-                "deduction_days", "freeze_months", "comment",
-                "submitted_by", "created_at",
-            ]
-            ws_vio.append_rows(
-                vio_df[_vio_cols].astype(str).values.tolist(),
-                value_input_option="USER_ENTERED",
-            )
-
-        # ── Employees sheet ───────────────────────────────────
-        emp_df = get_employees()
-        ws_emp = sh.worksheet("Employees")
-        ws_emp.clear()
-        ws_emp.update([_EMP_SHEET_HEADERS], "A1")
-        if not emp_df.empty:
-            ws_emp.append_rows(
-                emp_df[["id", "name", "email", "department", "manager_email"]]
-                .astype(str).values.tolist(),
-                value_input_option="USER_ENTERED",
-            )
-
-        return True, (
-            f"✅ Full sync complete — {len(vio_df)} violation(s) and "
-            f"{len(emp_df)} employee(s) written to Google Sheets."
+def get_rules() -> pd.DataFrame:
+    with _db() as conn:
+        return pd.read_sql_query(
+            "SELECT * FROM rules ORDER BY category, incident", conn
         )
 
-    except Exception as exc:
-        return False, f"Sync failed: {exc}"
+def get_matrix_from_rules() -> dict:
+    """Build MATRIX_DATA-format dict from the rules table."""
+    matrix: dict = {}
+    with _db() as conn:
+        rows = conn.execute("SELECT * FROM rules ORDER BY category, incident").fetchall()
+    for r in rows:
+        cat = r["category"]
+        inc = r["incident"]
+        matrix.setdefault(cat, {})[inc] = {
+            "reset":      r["reset_days"],
+            "escalation": json.loads(r["escalation_json"]),
+            "details":    r["description"] or "",
+            "hr_note":    r["hr_note"] or "",
+        }
+    return matrix
 
+def save_rule(
+    category: str,
+    incident: str,
+    description: str,
+    hr_note: str,
+    reset_days: int,
+    escalation: list,
+    rule_id: int | None = None,
+) -> None:
+    esc_json = json.dumps(escalation)
+    with _db() as conn:
+        if rule_id:
+            conn.execute(
+                """UPDATE rules
+                   SET category=?, incident=?, description=?, hr_note=?,
+                       reset_days=?, escalation_json=?
+                   WHERE id=?""",
+                (category, incident, description, hr_note, reset_days, esc_json, rule_id),
+            )
+        else:
+            conn.execute(
+                """INSERT INTO rules
+                   (category, incident, description, hr_note, reset_days, escalation_json)
+                   VALUES (?, ?, ?, ?, ?, ?)""",
+                (category, incident, description, hr_note, reset_days, esc_json),
+            )
+
+def delete_rule(rule_id: int) -> None:
+    with _db() as conn:
+        conn.execute("DELETE FROM rules WHERE id = ?", (rule_id,))
 
 # =============================================================
 # SECTION 3 — BUSINESS LOGIC
 # =============================================================
 
 def calculate_next_penalty(emp_name: str, category: str, incident: str) -> str:
-    _live = get_matrix_from_rules()
-    meta       = _live[category][incident]
+    meta       = MATRIX_DATA[category][incident]
     escalation = meta["escalation"]
     reset_days = meta["reset"]
     cutoff     = (
@@ -1234,7 +1172,7 @@ def calculate_next_penalty(emp_name: str, category: str, incident: str) -> str:
 # SECTION 4 — EMAIL SERVICE
 # =============================================================
 
-_EMAIL_REGEX = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+_EMAIL_REGEX = re.compile(r"^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$")
 
 def _valid_email(addr: str) -> bool:
     return bool(_EMAIL_REGEX.match(addr.strip()))
@@ -1257,14 +1195,12 @@ def send_notifications(
     p         = PENALTY_MAP[penalty_color]
     is_invest = penalty_color == "Investigation"
 
-    if applied_days is not None and applied_days != p["deduction_days"] and not is_invest:
-        actual_label = f"{penalty_color} Card — {applied_days} Days Deduction (Override)"
-    else:
-        actual_label = p["label"]
+    actual_label = _build_penalty_label(penalty_color, applied_days)
 
     try:
         with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=10) as srv:
             srv.login(SENDER_EMAIL, SENDER_PASSWORD)
+            _img_attach_warning = ""
 
             if _valid_email(emp_email):
                 msg = MIMEMultipart()
@@ -1301,9 +1237,9 @@ def send_notifications(
                         img_data = base64.b64decode(proof_b64)
                         img_part = MIMEImage(img_data, name="Attached_Proof.jpg")
                         msg.attach(img_part)
-                    except Exception:
-                        pass
-                
+                    except Exception as img_exc:
+                        _img_attach_warning += f" (employee email: proof image not attached — {img_exc})"
+
                 srv.sendmail(SENDER_EMAIL, [emp_email], msg.as_string())
 
             if manager_email and _valid_email(manager_email):
@@ -1338,12 +1274,13 @@ def send_notifications(
                         img_data = base64.b64decode(proof_b64)
                         img_part = MIMEImage(img_data, name="Attached_Proof.jpg")
                         mgr.attach(img_part)
-                    except Exception:
-                        pass
-                
+                    except Exception as img_exc:
+                        _img_attach_warning += f" (manager email: proof image not attached — {img_exc})"
+
                 srv.sendmail(SENDER_EMAIL, recipients, mgr.as_string())
 
-        return True, "Emails sent successfully."
+        suffix = f" Warning:{_img_attach_warning}" if _img_attach_warning else ""
+        return True, f"Emails sent successfully.{suffix}"
 
     except smtplib.SMTPAuthenticationError:
         return False, "SMTP authentication failed — check EMAIL / PASSWORD in secrets."
@@ -1392,15 +1329,20 @@ def _kpi_row(df: pd.DataFrame) -> None:
         frozen = sub[sub["freeze_months"] > 0]
         if frozen.empty:
             return False
-        last = frozen.loc[frozen["created_at"].idxmax()]
-        end  = pd.to_datetime(last["created_at"]) + pd.DateOffset(
-            months=int(last["freeze_months"])
-        )
-        return end.to_pydatetime() > today
+        # Check if ANY freeze record is still active, not just the most recent one.
+        # An employee with an older 3-month freeze + a newer expired 2-month freeze
+        # must still show as frozen.
+        return frozen.apply(
+            lambda r: (
+                pd.to_datetime(r["created_at"])
+                + pd.DateOffset(months=int(r["freeze_months"]))
+            ).to_pydatetime() > today,
+            axis=1,
+        ).any()
 
     active_freezes = (
         df.groupby("employee_name")
-          .apply(_active_freeze)
+          .apply(_active_freeze, include_groups=False)
           .sum()
     )
 
@@ -1417,11 +1359,42 @@ def _kpi_row(df: pd.DataFrame) -> None:
 
 init_db()
 
+# ── Brand header strip ──────────────────────────────────────
+st.markdown("""
+<div class="tg-brand-strip">
+  <div class="logo">TG</div>
+  <div class="brand-text">
+    <div class="name">Travel Gate KSA</div>
+    <div class="sub">HR Disciplinary Management System</div>
+  </div>
+</div>
+""", unsafe_allow_html=True)
+
+# ── RTL body-class injection ────────────────────────────────
+if st.session_state.lang == "ar":
+    st.markdown(
+        "<script>document.body.classList.add('rtl');"
+        "document.body.setAttribute('dir','rtl');</script>",
+        unsafe_allow_html=True,
+    )
+else:
+    st.markdown(
+        "<script>document.body.classList.remove('rtl');"
+        "document.body.removeAttribute('dir');</script>",
+        unsafe_allow_html=True,
+    )
+
+if _USING_DEFAULT_PASS:
+    st.warning(
+        "⚠️ **Security Warning:** Admin password is set to the default `admin123`. "
+        "Please configure `HR_ADMIN_PASSWORD` in `.streamlit/secrets.toml` before deploying."
+    )
+
 tab_log, tab_admin, tab_reports, tab_rules = st.tabs([
     _t("📝 Log Violation"),
     _t("⚙️ Admin Dashboard"),
     _t("📊 Reports & Analytics"),
-    _t("📜 Rules Management"),
+    _t("📐 Rules Management"),
 ])
 
 # =============================================================
@@ -1429,12 +1402,9 @@ tab_log, tab_admin, tab_reports, tab_rules = st.tabs([
 # =============================================================
 with tab_log:
     employees_df = get_employees()
-    _LIVE_MATRIX = get_matrix_from_rules()
 
     if employees_df.empty:
         st.warning(_t("⚠️ No employees found. Please add employees in the **Admin Dashboard** tab first."))
-    elif not _LIVE_MATRIX:
-        st.warning(_t("⚠️ No rules configured. Please add rules in the **Rules Management** tab first."))
     else:
         st.subheader(_t("Register New Violation"))
 
@@ -1442,19 +1412,19 @@ with tab_log:
         with col_cat:
             category = st.selectbox(
                 _t("Violation Category"),
-                list(_LIVE_MATRIX.keys()),
+                list(MATRIX_DATA.keys()),
                 format_func=lambda x: _t(x),
                 key="t1_cat",
             )
         with col_inc:
             incident = st.selectbox(
                 _t("Incident Type"),
-                list(_LIVE_MATRIX[category].keys()),
+                list(MATRIX_DATA[category].keys()),
                 format_func=lambda x: _t(x),
                 key="t1_inc",
             )
 
-        inc_meta   = _LIVE_MATRIX[category][incident]
+        inc_meta   = MATRIX_DATA[category][incident]
         escalation = inc_meta["escalation"]
         reset_days = inc_meta["reset"]
         details    = inc_meta.get("details", "")
@@ -1494,8 +1464,11 @@ with tab_log:
                 st.markdown("---")
                 force_investigation = st.checkbox(_t("🚨 Force Direct Investigation (Bypass Escalation)"))
                 custom_deduction = st.number_input(
-                    _t("Deduction Days Override (Optional)"), 
-                    value=-1.0, step=0.5, 
+                    _t("Deduction Days Override (Optional)"),
+                    value=-1.0,
+                    min_value=-1.0,
+                    max_value=365.0,
+                    step=0.5,
                     help=_t("Leave as -1.0 to use default system calculation.")
                 )
 
@@ -1520,17 +1493,20 @@ with tab_log:
             if not submitted_by.strip():
                 st.error(_t("⚠️ **HR Representative Name** is required. This field is the system's audit trail."))
             else:
-                _MAX_IMAGE_BYTES = 2 * 1024 * 1024   # 2 MB
                 proof_b64 = ""
                 if proof_file is not None:
-                    if proof_file.size > _MAX_IMAGE_BYTES:
-                        st.error("⚠️ Image too large. Maximum allowed size is 2 MB.")
-                        proof_file = None
-                    else:
-                        try:
-                            proof_b64 = base64.b64encode(proof_file.read()).decode("utf-8")
-                        except Exception as e:
-                            st.error(f"Image Error: {e}")
+                    if proof_file.size > 5 * 1024 * 1024:
+                        st.error(
+                            f"⚠️ Proof image is too large "
+                            f"({proof_file.size / 1024 / 1024:.1f} MB). "
+                            "Maximum allowed size is 5 MB. "
+                            "Please compress or crop the image before uploading."
+                        )
+                        st.stop()
+                    try:
+                        proof_b64 = base64.b64encode(proof_file.read()).decode("utf-8")
+                    except Exception as e:
+                        st.error(f"Image Error: {e}")
 
                 penalty_color = calculate_next_penalty(emp_name, category, incident)
                 
@@ -1542,35 +1518,18 @@ with tab_log:
                 actual_override = custom_deduction if custom_deduction >= 0.0 else None
                 applied_days = actual_override if actual_override is not None else p_info["deduction_days"]
 
-                emp_row = employees_df[
-                    employees_df["name"] == emp_name
-                ].iloc[0]
+                emp_rows = employees_df[employees_df["name"] == emp_name]
+                if emp_rows.empty:
+                    st.error(_t("⚠️ Employee not found. Please refresh the page."))
+                    st.stop()
+                emp_row = emp_rows.iloc[0]
 
                 insert_violation(
                     emp_name, category, incident,
                     penalty_color, comment, submitted_by.strip(),
                     override_days=actual_override,
-                    proof_image=proof_b64
+                    proof_image=proof_b64          
                 )
-
-                # ── Google Sheets: append this violation (non-blocking) ──
-                with _db() as _gc:
-                    _last_id = _gc.execute(
-                        "SELECT id FROM violations ORDER BY id DESC LIMIT 1"
-                    ).fetchone()["id"]
-                _gs_label = (
-                    f"{penalty_color} Card — {applied_days} Days Deduction (Override)"
-                    if applied_days != p_info["deduction_days"] and penalty_color != "Investigation"
-                    else p_info["label"]
-                )
-                _sheets_append_violation([
-                    _last_id, emp_name, category, incident,
-                    penalty_color, _gs_label,
-                    p_info["deduction_hours"], applied_days,
-                    p_info["freeze_months"], comment,
-                    submitted_by.strip(),
-                    datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                ])
 
                 email_ok, email_msg = send_notifications(
                     str(emp_row["email"]),
@@ -1598,10 +1557,19 @@ with tab_log:
 
                 if penalty_color == "Investigation":
                     st.error(_t("🚨 **INVESTIGATION TRIGGERED** \nThe employee must be suspended immediately. Escalate to the HR Director and do **not** allow the employee on-site."))
+                    if not _secret("HR_MANAGER_EMAIL"):
+                        st.warning(
+                            "⚠️ **Configuration Warning:** `HR_MANAGER_EMAIL` is not set in "
+                            "`.streamlit/secrets.toml`. The HR Director will **not** receive a "
+                            "separate Investigation alert. Please configure this key immediately."
+                        )
                 elif applied_days > 0:
+                    # Only show original deduction_hours when no day-override was applied.
+                    # If a custom override is set, the original hours figure no longer matches.
                     hrs = (
                         f" ({p_info['deduction_hours']} hrs)"
-                        if p_info["deduction_hours"] > 0 else ""
+                        if p_info["deduction_hours"] > 0 and actual_override is None
+                        else ""
                     )
                     st.info(f"{_t('💰 **Payroll:**')} {applied_days} {_t('day(s) deduction')} {hrs} {_t('must be applied.')}")
 
@@ -1669,7 +1637,11 @@ with tab_admin:
                 key="del_emp_sel",
             )
             if del_name != _t("— select —"):
-                if st.button(_t("🗑️ Delete Employee"), key="del_emp_btn"):
+                confirm_del_emp = st.checkbox(
+                    _t("I confirm I want to permanently delete this employee"),
+                    key="confirm_del_emp",
+                )
+                if st.button(_t("🗑️ Delete Employee"), key="del_emp_btn", disabled=not confirm_del_emp):
                     delete_employee(del_name)
                     st.success(f"Employee **{del_name}** {_t('removed.')}")
                     st.rerun()
@@ -1693,6 +1665,10 @@ with tab_admin:
                 "submitted_by": _t("Submitted By"), "created_at": _t("Date & Time")
             }
             
+            # Dropping proof_image so it doesn't freeze the dataframe UI with huge Base64 strings
+            if "proof_image" in v_disp_admin.columns:
+                v_disp_admin = v_disp_admin.drop(columns=["proof_image"])
+
             st.dataframe(
                 v_disp_admin[list(_admin_cols.keys())].rename(columns=_admin_cols),
                 use_container_width=True,
@@ -1702,7 +1678,11 @@ with tab_admin:
                 v_all["id"].tolist(),
                 key="del_v_sel",
             )
-            if st.button(_t("🗑️ Delete Violation Record"), key="del_v_btn"):
+            confirm_del_v = st.checkbox(
+                _t("I confirm I want to permanently delete this violation record"),
+                key="confirm_del_v",
+            )
+            if st.button(_t("🗑️ Delete Violation Record"), key="del_v_btn", disabled=not confirm_del_v):
                 delete_violation(int(del_id))
                 st.success(f"{_t('Record')} **{del_id}** {_t('deleted.')}")
                 st.rerun()
@@ -1716,136 +1696,22 @@ with tab_admin:
                 key="view_img_sel",
             )
             if st.button(_t("👁️ View Image"), key="view_img_btn"):
-                # Fetch only the image for this specific record (no full table scan)
-                with _db() as _img_conn:
-                    _img_row = _img_conn.execute(
-                        "SELECT proof_image FROM violations WHERE id = ?", (int(view_id),)
-                    ).fetchone()
-                img_b64 = _img_row["proof_image"] if _img_row else ""
-                if img_b64:
-                    try:
-                        img_data = base64.b64decode(img_b64)
-                        st.image(img_data, caption=f"{_t('Proof for Record ID:')} {view_id}")
-                    except Exception as e:
-                        st.error(f"Error loading image: {e}")
+                matches = v_all.loc[v_all["id"] == view_id, "proof_image"]
+                if matches.empty:
+                    st.warning(_t("Record not found. Please refresh the page."))
                 else:
-                    st.info(_t("No image attached to this record."))
+                    img_b64 = matches.iloc[0]
+                    if img_b64:
+                        try:
+                            img_data = base64.b64decode(img_b64)
+                            st.image(img_data, caption=f"{_t('Proof for Record ID:')} {view_id}")
+                        except Exception as e:
+                            st.error(f"Error loading image: {e}")
+                    else:
+                        st.info(_t("No image attached to this record."))
                     
         else:
             st.info(_t("No violations logged yet."))
-
-        # ── Google Sheets Backup ──────────────────────────────
-        st.divider()
-        st.subheader("☁️ Google Sheets Backup")
-
-        if not GSHEETS_SPREADSHEET_ID:
-            st.info(
-                "Google Sheets sync is **not configured** yet. "
-                "Expand the setup guide below to get started."
-            )
-        else:
-            st.caption(
-                f"📋 Spreadsheet ID: `{GSHEETS_SPREADSHEET_ID}`  \n"
-                "Full sync overwrites both **Violations** and **Employees** sheets "
-                "with the current SQLite data."
-            )
-            if st.button("🔄 Full Sync to Google Sheets", key="gsheets_sync_btn"):
-                with st.spinner("Syncing to Google Sheets…"):
-                    _ok, _msg = _sheets_full_sync()
-                if _ok:
-                    st.success(_msg)
-                else:
-                    st.error(f"Sync failed: {_msg}")
-
-        with st.expander("⚙️ How to Set Up Google Sheets Sync", expanded=not bool(GSHEETS_SPREADSHEET_ID)):
-            st.markdown("""
-### Step-by-step Setup Guide
-
----
-
-**Step 1 — Create a Google Cloud Project**
-1. Go to [console.cloud.google.com](https://console.cloud.google.com).
-2. Click the project dropdown → **New Project** → give it a name (e.g. `hr-system`) → **Create**.
-
----
-
-**Step 2 — Enable the required APIs**
-1. Left menu → **APIs & Services → Library**.
-2. Search **Google Sheets API** → **Enable**.
-3. Search **Google Drive API** → **Enable** (required for gspread to work).
-
----
-
-**Step 3 — Create a Service Account**
-1. Left menu → **APIs & Services → Credentials**.
-2. Click **+ Create Credentials → Service Account**.
-3. Name it (e.g. `hr-sheets`) → **Create and Continue** → **Done**.
-
----
-
-**Step 4 — Download the JSON Key**
-1. Click the service account email you just created.
-2. Go to the **Keys** tab → **Add Key → Create new key → JSON → Create**.
-3. A `.json` file downloads — treat it like a password, keep it safe.
-
----
-
-**Step 5 — Create the Google Spreadsheet**
-1. Go to [sheets.google.com](https://sheets.google.com) → create a new **Blank** spreadsheet.
-2. Name it **HR System Backup** (or anything you prefer).
-3. Rename **Sheet1** tab → `Violations`.
-4. Click the **+** button at the bottom → rename the new sheet → `Employees`.
-5. Copy the **Spreadsheet ID** from the URL:
-   ```
-   https://docs.google.com/spreadsheets/d/  ← SPREADSHEET_ID →  /edit
-   ```
-
----
-
-**Step 6 — Share the Sheet with the Service Account**
-1. Click **Share** (top-right of the spreadsheet).
-2. Paste the service account email (ends with `.iam.gserviceaccount.com`).
-3. Set permission to **Editor** → **Send**.
-
----
-
-**Step 7 — Add Credentials to `secrets.toml`**
-
-Create or edit `.streamlit/secrets.toml` in the project root and add:
-
-```toml
-GSHEETS_SPREADSHEET_ID = "paste-your-spreadsheet-id-here"
-
-[gcp_service_account]
-type                        = "service_account"
-project_id                  = "from-json-file"
-private_key_id              = "from-json-file"
-private_key                 = "-----BEGIN RSA PRIVATE KEY-----\\nABC...XYZ\\n-----END RSA PRIVATE KEY-----\\n"
-client_email                = "hr-sheets@your-project.iam.gserviceaccount.com"
-client_id                   = "from-json-file"
-auth_uri                    = "https://accounts.google.com/o/oauth2/auth"
-token_uri                   = "https://oauth2.googleapis.com/token"
-auth_provider_x509_cert_url = "https://www.googleapis.com/oauth2/v1/certs"
-client_x509_cert_url        = "from-json-file"
-```
-
-> ⚠️ For `private_key`: open the downloaded JSON file, copy the entire value of `"private_key"`,
-> and replace every actual newline with `\\n` (two characters: backslash + n).
-
----
-
-**Step 8 — Restart the App**
-
-After saving `secrets.toml`, restart the Streamlit app (or press **R** in Streamlit Cloud).
-The **Full Sync** button above will then be active.
-
----
-
-**How it works after setup:**
-- Every new violation → 1 row auto-appended to the **Violations** sheet instantly.
-- Use the **Full Sync** button after deleting records to keep the sheet clean.
-- The sheet is read-only for HR visibility — edits in the sheet do **not** affect the system.
-            """)
 
 # =============================================================
 # TAB 3 — REPORTS & ANALYTICS
@@ -1864,10 +1730,9 @@ with tab_reports:
             all_names = [_t("All")] + sorted(
                 get_employees()["name"].tolist()
             )
-            _rpt_matrix = get_matrix_from_rules()
             all_incidents = [_t("All")] + sorted(
                 inc
-                for cat in _rpt_matrix.values()
+                for cat in MATRIX_DATA.values()
                 for inc in cat
             )
             all_penalties = [_t("All")] + list(PENALTY_MAP.keys())
@@ -1941,7 +1806,7 @@ with tab_reports:
                         df_disp,
                         names="category",
                         title=_t("Violations by Category"),
-                        color_discrete_sequence=["#3ECAC0","#F47B3A","#2AADA3","#FDB97D","#1F8F87","#FFD580","#7ECECE"],
+                        color_discrete_sequence=px.colors.qualitative.Set2,
                     )
                     fig_pie.update_traces(
                         textposition="inside",
@@ -1963,7 +1828,7 @@ with tab_reports:
                         y=_t("Count"),
                         title=_t("Violations per Employee"),
                         color=_t("Count"),
-                        color_continuous_scale=["#E8FAF9","#3ECAC0","#1F8F87"],
+                        color_continuous_scale="Reds",
                     )
                     fig_emp_bar.update_layout(
                         showlegend=False,
@@ -1988,7 +1853,7 @@ with tab_reports:
                     y="count",
                     title=_t("Daily Violation Count"),
                     labels={"date_only": _t("Date"), "count": _t("Violations")},
-                    color_discrete_sequence=["#F47B3A"],
+                    color_discrete_sequence=["#EF553B"],
                 )
                 fig_time.update_layout(
                     bargap=0.25,
@@ -2039,7 +1904,7 @@ with tab_reports:
                         y=_t("Incident"),
                         orientation="h",
                         title=_t("Top 10 Incidents"),
-                        color_discrete_sequence=["#3ECAC0"],
+                        color_discrete_sequence=["#636EFA"],
                     )
                     fig_inc.update_layout(
                         yaxis={"categoryorder": "total ascending"}
@@ -2084,6 +1949,10 @@ with tab_reports:
                     "created_at":       _t("Date & Time"),
                 }
                 
+                # Dropping proof_image so it doesn't freeze the dataframe UI
+                if "proof_image" in df_disp.columns:
+                    df_disp = df_disp.drop(columns=["proof_image"])
+                    
                 hist_df = df_disp[list(_cols.keys())].rename(columns=_cols)
                 st.dataframe(hist_df, use_container_width=True, height=420)
 
@@ -2096,13 +1965,15 @@ with tab_reports:
                     ]
                     if sub.empty:
                         return f"✅ {_t('No')}"
-                    latest_idx = sub["created_at"].idxmax()
-                    months     = int(sub.at[latest_idx, "freeze_months"])
-                    end        = (
-                        sub.at[latest_idx, "created_at"]
-                        + pd.DateOffset(months=months)
-                    ).date()
-                    return f"🔒 {_t('Yes')}" if end > today_d else f"✅ {_t('No')}"
+                    # Check if ANY freeze record is still active, not just the most recent.
+                    is_active = sub.apply(
+                        lambda r: (
+                            r["created_at"]
+                            + pd.DateOffset(months=int(r["freeze_months"]))
+                        ).date() > today_d,
+                        axis=1,
+                    ).any()
+                    return f"🔒 {_t('Yes')}" if is_active else f"✅ {_t('No')}"
 
                 payroll = (
                     df_disp.groupby("employee_name")
@@ -2143,202 +2014,189 @@ with tab_reports:
                     use_container_width=True,
                 )
 
+                # ── Google Sheets upload ─────────────────────
+                st.divider()
+                st.subheader(_t("📤 Upload to Google Sheets"))
+
+                gsheets_key_file = st.file_uploader(
+                    _t("Upload Service Account JSON Key"),
+                    type=["json"],
+                    key="gsheets_key",
+                    help="Upload a Google Service Account JSON key with Sheets & Drive API access.",
+                )
+
+                sheet_name_input = st.text_input(
+                    _t("Google Sheet Name (optional)"),
+                    placeholder=_t("e.g. HR Report April 2026"),
+                    key="gsheets_name",
+                )
+
+                if gsheets_key_file is not None:
+                    if st.button(_t("📤 Upload to Google Sheets"), use_container_width=True):
+                        try:
+                            creds_dict = json.load(gsheets_key_file)
+                            scopes = [
+                                "https://www.googleapis.com/auth/spreadsheets",
+                                "https://www.googleapis.com/auth/drive",
+                            ]
+                            creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
+                            gc = gspread.Client(auth=creds)
+
+                            title = sheet_name_input.strip() or (
+                                f"HR Report {datetime.now().strftime('%Y-%m-%d %H:%M')}"
+                            )
+                            spreadsheet = gc.create(title)
+
+                            # Write Violations History sheet
+                            ws_violations = spreadsheet.sheet1
+                            ws_violations.update_title("Violations History")
+                            violations_data = [hist_df.columns.tolist()] + hist_df.astype(str).values.tolist()
+                            ws_violations.update(range_name="A1", values=violations_data)
+
+                            # Write Payroll Summary sheet
+                            ws_payroll = spreadsheet.add_worksheet(title="Payroll Summary", rows=500, cols=20)
+                            payroll_data = [payroll.columns.tolist()] + payroll.astype(str).values.tolist()
+                            ws_payroll.update(range_name="A1", values=payroll_data)
+
+                            # Public sharing is intentionally disabled — employee
+                            # disciplinary data must not be world-readable.
+                            # Share the spreadsheet manually from Google Drive if needed.
+
+                            sheet_url = spreadsheet.url
+                            st.success(_t("✅ Report successfully uploaded to Google Sheets!"))
+                            st.link_button(_t("🔗 Open Google Sheet"), sheet_url, use_container_width=True)
+
+                        except Exception as exc:
+                            st.error(_t("❌ Upload failed: ") + str(exc))
+                else:
+                    st.info(_t("⚠️ Please upload a Service Account JSON key to enable Google Sheets export."))
+
 # =============================================================
 # TAB 4 — RULES MANAGEMENT
 # =============================================================
 with tab_rules:
     if not require_auth("tab4"):
-        pass
+        pass   # Login form rendered by require_auth
     else:
         _logout_button("tab4")
-        st.header(_t("📜 Rules & Escalation Management"))
-        st.caption(_t("Add, edit, or delete violation rules. Changes take effect immediately on new violations."))
+        st.subheader(_t("📐 Penalty Rules Management"))
 
-        _VALID_PENALTIES = list(PENALTY_MAP.keys())
-
-        # ── State helpers for edit mode ─────────────────────
-        if "edit_rule_id" not in st.session_state:
-            st.session_state.edit_rule_id = None
-
-        # ── Current rules table ─────────────────────────────
         rules_df = get_rules()
 
+        # ── Current rules table ───────────────────────────
         if not rules_df.empty:
-            st.subheader(_t("Current Rules"))
-
-            # Build display dataframe
-            _rdisp = rules_df.copy()
-            _rdisp["escalation_preview"] = _rdisp["escalation_json"].apply(
-                lambda j: " → ".join(
-                    f"{PENALTY_MAP.get(p, {}).get('badge', '?')} {_t(p)}"
-                    for p in _json.loads(j)
-                )
-            )
-            _rdisp["category"] = _rdisp["category"].apply(_t)
-            _rdisp["incident"] = _rdisp["incident"].apply(_t)
-
-            _rcols = {
-                "id": "ID",
-                "category": _t("Category"),
-                "incident": _t("Incident"),
-                "description": _t("Description"),
-                "reset_days": _t("Reset (days)"),
-                "escalation_preview": _t("Escalation Path"),
-            }
-            st.dataframe(
-                _rdisp[list(_rcols.keys())].rename(columns=_rcols),
-                use_container_width=True,
-                height=min(400, 60 + len(rules_df) * 35),
-            )
-
-            # ── Delete rule ──────────────────────────────
-            st.markdown("---")
-            _del_col, _edit_col = st.columns(2)
-            with _del_col:
-                _del_rule_id = st.selectbox(
-                    _t("Select Rule ID to delete:"),
-                    rules_df["id"].tolist(),
-                    key="del_rule_sel",
-                )
-                if st.button(_t("🗑️ Delete Rule"), key="del_rule_btn"):
-                    delete_rule(int(_del_rule_id))
-                    st.success(f"{_t('Rule')} **{_del_rule_id}** {_t('deleted.')}")
-                    st.rerun()
-
-            # ── Load rule for editing ────────────────────
-            with _edit_col:
-                _edit_rule_id = st.selectbox(
-                    _t("Select Rule ID to edit:"),
-                    rules_df["id"].tolist(),
-                    key="edit_rule_sel",
-                )
-                if st.button(_t("✏️ Load Rule for Editing"), key="load_rule_btn"):
-                    st.session_state.edit_rule_id = int(_edit_rule_id)
-                    st.rerun()
-
+            disp_rules = rules_df[["id", "category", "incident", "reset_days", "escalation_json"]].copy()
+            disp_rules.columns = [
+                _t("ID"), _t("Category"), _t("Incident"),
+                _t("Reset Days"), _t("Escalation"),
+            ]
+            st.dataframe(disp_rules, use_container_width=True)
         else:
-            st.info(_t("No rules configured yet. Use the form below to add the first rule."))
+            st.info(_t("No violations logged yet."))
 
         st.divider()
+        st.subheader(_t("Edit / Add Rule"))
 
-        # ── Add / Edit Form ──────────────────────────────────
-        _editing = st.session_state.edit_rule_id is not None
-        _edit_data: dict = {}
+        # ── Rule selector ─────────────────────────────────
+        rule_options = [_t("— new rule —")] + [
+            f"[{r['id']}] {r['category']} › {r['incident']}"
+            for _, r in rules_df.iterrows()
+        ] if not rules_df.empty else [_t("— new rule —")]
 
-        if _editing and not rules_df.empty:
-            _row = rules_df[rules_df["id"] == st.session_state.edit_rule_id]
-            if not _row.empty:
-                _edit_data = _row.iloc[0].to_dict()
-                _edit_data["escalation"] = _json.loads(_edit_data["escalation_json"])
-
-        _form_title = (
-            f"✏️ {_t('Edit Rule')} (ID: {st.session_state.edit_rule_id})"
-            if _editing and _edit_data
-            else f"➕ {_t('Add New Rule')}"
+        selected_rule_label = st.selectbox(
+            _t("Select Rule to Edit"), rule_options, key="rule_sel"
         )
-        st.subheader(_form_title)
 
-        if _editing and not _edit_data:
-            st.warning(_t("Rule not found. It may have been deleted."))
-            st.session_state.edit_rule_id = None
-            _editing = False
+        # Pre-fill form fields from selected rule
+        editing_rule = None
+        if selected_rule_label != _t("— new rule —") and not rules_df.empty:
+            try:
+                rule_id_str = selected_rule_label.split("]")[0].lstrip("[")
+                editing_rule = rules_df[rules_df["id"] == int(rule_id_str)].iloc[0]
+            except Exception:
+                editing_rule = None
 
-        with st.form("rule_form", clear_on_submit=not _editing):
-            _rf1, _rf2 = st.columns(2)
-            with _rf1:
-                _r_category = st.text_input(
+        # ── Edit form ─────────────────────────────────────
+        with st.form("rule_form", clear_on_submit=False):
+            rc1, rc2 = st.columns(2)
+            with rc1:
+                rule_category = st.text_input(
                     _t("Category *"),
-                    value=_edit_data.get("category", ""),
-                    placeholder="e.g. Attendance & Adherence",
+                    value=editing_rule["category"] if editing_rule is not None else "",
                 )
-                _r_incident = st.text_input(
+                rule_incident = st.text_input(
                     _t("Incident Name *"),
-                    value=_edit_data.get("incident", ""),
-                    placeholder="e.g. Late Arrival",
+                    value=editing_rule["incident"] if editing_rule is not None else "",
                 )
-                _r_reset = st.number_input(
-                    _t("Reset Period (days) *"),
-                    min_value=1, max_value=365,
-                    value=int(_edit_data.get("reset_days", 30)),
+                rule_reset = st.number_input(
+                    _t("Reset Window (days)"),
+                    min_value=1,
+                    value=int(editing_rule["reset_days"]) if editing_rule is not None else 90,
                 )
-
-            with _rf2:
-                _r_desc = st.text_area(
+            with rc2:
+                rule_desc = st.text_area(
                     _t("Description"),
-                    value=_edit_data.get("description", ""),
+                    value=editing_rule["description"] if editing_rule is not None else "",
                     height=80,
                 )
-                _r_hr_note = st.text_area(
-                    _t("HR Note (Optional)"),
-                    value=_edit_data.get("hr_note", ""),
+                rule_hr_note = st.text_area(
+                    _t("HR Note"),
+                    value=editing_rule["hr_note"] if editing_rule is not None else "",
                     height=80,
                 )
+                default_esc = (
+                    ", ".join(json.loads(editing_rule["escalation_json"]))
+                    if editing_rule is not None
+                    else "Yellow, Orange, Red, Black, Investigation"
+                )
+                rule_esc_str = st.text_input(
+                    _t("Escalation Steps (comma-separated)"),
+                    value=default_esc,
+                    placeholder=_t("e.g. Yellow,Yellow,Orange,Red,Black,Investigation"),
+                )
 
-            st.markdown(f"**{_t('Escalation Path')}** — {_t('Select penalty levels in order (1st offense → last)')}")
+            do_save = st.form_submit_button(_t("💾 Save Rule"), use_container_width=True)
 
-            _existing_esc = _edit_data.get("escalation", ["Yellow"])
-            _n_steps = st.number_input(
-                _t("Number of escalation steps"),
-                min_value=1, max_value=10,
-                value=max(1, len(_existing_esc)),
-                key="esc_steps",
-            )
+        if do_save:
+            errors: list[str] = []
+            if not rule_category.strip():
+                errors.append(_t("⚠️ Category and Incident Name are required."))
+            if not rule_incident.strip():
+                errors.append(_t("⚠️ Category and Incident Name are required."))
 
-            _esc_cols = st.columns(min(int(_n_steps), 5))
-            _esc_vals: list[str] = []
-            for i in range(int(_n_steps)):
-                col_idx = i % min(int(_n_steps), 5)
-                with _esc_cols[col_idx]:
-                    _default_idx = (
-                        _VALID_PENALTIES.index(_existing_esc[i])
-                        if i < len(_existing_esc) and _existing_esc[i] in _VALID_PENALTIES
-                        else 0
-                    )
-                    _step_val = st.selectbox(
-                        f"Step {i + 1}",
-                        _VALID_PENALTIES,
-                        index=_default_idx,
-                        format_func=lambda x: f"{PENALTY_MAP[x]['badge']} {_t(x)}",
-                        key=f"esc_step_{i}",
-                    )
-                    _esc_vals.append(_step_val)
+            valid_colors = {"Yellow", "Orange", "Red", "Black", "Investigation"}
+            esc_steps = [s.strip() for s in rule_esc_str.split(",") if s.strip()]
+            invalid = [s for s in esc_steps if s not in valid_colors]
+            if invalid:
+                errors.append(_t("⚠️ Invalid escalation steps. Use colors: Yellow, Orange, Red, Black, Investigation"))
 
-            _submitted_rule = st.form_submit_button(
-                _t("💾 Save Rule") if not _editing else _t("💾 Update Rule"),
-                use_container_width=True,
-            )
-
-        if _submitted_rule:
-            _errors: list[str] = []
-            if not _r_category.strip():
-                _errors.append(_t("Category is required."))
-            if not _r_incident.strip():
-                _errors.append(_t("Incident Name is required."))
-            if not _esc_vals:
-                _errors.append(_t("At least one escalation step is required."))
-
-            if _errors:
-                for _e in _errors:
-                    st.error(f"⚠️ {_e}")
+            if errors:
+                for e in errors:
+                    st.error(e)
             else:
                 
                 save_rule(
-                    category=_r_category.strip(),
-                    incident=_r_incident.strip(),
-                    description=_r_desc.strip(),
-                    hr_note=_r_hr_note.strip(),
-                    reset_days=int(_r_reset),
-                    escalation=_esc_vals,
-                    rule_id=st.session_state.edit_rule_id if _editing else None,
+                    rule_category.strip(),
+                    rule_incident.strip(),
+                    rule_desc.strip(),
+                    rule_hr_note.strip(),
+                    int(rule_reset),
+                    esc_steps,
+                    rule_id=int(editing_rule["id"]) if editing_rule is not None else None,
                 )
-                if _editing:
-                    st.success(f"✅ {_t('Rule updated successfully.')}")
-                    st.session_state.edit_rule_id = None
-                else:
-                    st.success(f"✅ {_t('Rule added successfully.')}")
+                st.success(_t("✅ Rule saved."))
                 st.rerun()
 
-        if _editing:
-            if st.button(_t("❌ Cancel Editing"), key="cancel_edit_btn"):
-                st.session_state.edit_rule_id = None
+        # ── Delete rule ───────────────────────────────────
+        if editing_rule is not None:
+            st.divider()
+            confirm_del_rule = st.checkbox(
+                _t("I confirm I want to permanently delete this rule"),
+                key="confirm_del_rule",
+            )
+            if st.button(
+                _t("🗑️ Delete Rule"), key="del_rule_btn", disabled=not confirm_del_rule
+            ):
+                delete_rule(int(editing_rule["id"]))
+                st.success(_t("✅ Rule deleted."))
                 st.rerun()
