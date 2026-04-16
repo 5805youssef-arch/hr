@@ -4,10 +4,10 @@ import { L } from "./i18n";
 import { IC } from "./icons";
 import { Card, Empty } from "./components";
 import Dashboard from "./pages/Dashboard";
+import LogViolation from "./pages/LogViolation";
+import Employees from "./pages/Employees";
 
 const PLACEHOLDERS = {
-  log: { icon: IC.log, title: "log" },
-  emp: { icon: IC.emp, title: "emp" },
   rep: { icon: IC.rep, title: "rep" },
   set: { icon: IC.setBig, title: "comingSoon", sub: "comingSoonSub" },
 };
@@ -78,6 +78,10 @@ export default function HRSystem() {
   let content;
   if (page === "dash") {
     content = <Dashboard lang={lang} onNewV={() => setPage("log")} onViewAll={() => setPage("rep")} />;
+  } else if (page === "log") {
+    content = <LogViolation lang={lang} />;
+  } else if (page === "emp") {
+    content = <Employees lang={lang} />;
   } else {
     const p = PLACEHOLDERS[page];
     content = (
