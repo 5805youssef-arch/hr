@@ -1,11 +1,60 @@
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../api";
-import { S } from "../tokens";
 import { L } from "../i18n";
 import { IC } from "../icons";
-import { Card, Empty, KpiCard, BtnPri, BtnSec, Th, FG, PenBadge, inp } from "../components";
+import { Card, Empty, KpiCard, BtnPri, BtnSec, PenBadge, FG } from "../components";
 
 const PENALTIES = ["Yellow", "Orange", "Red", "Black", "Investigation"];
+const PY_BAR = {
+  Yellow: "#D97706", Orange: "#EA580C", Red: "#DC2626", Black: "#1E293B", Investigation: "#7C3AED",
+};
+const PY_SHORT = {
+  Yellow: "Yellow", Orange: "Orange", Red: "Red", Black: "Black", Investigation: "Invest.",
+};
+
+function PenaltyBars({ data }) {
+  const max = Math.max(...PENALTIES.map((p) => data[p] || 0), 1);
+  return (
+    <div className="bar-col-chart">
+      {[1, 0.75, 0.5, 0.25, 0].map((p, i) => {
+        const v = Math.round(max * (1 - p));
+        return (
+          <div key={i} style={{ position: "absolute", left: 6, right: 6, top: 10 + p * 180, height: 1, background: "#ECEEF2" }}>
+            <span style={{ position: "absolute", left: -4, top: -8, fontSize: 10, color: "#8896A5", transform: "translateX(-100%)" }}>{v}</span>
+          </div>
+        );
+      })}
+      {PENALTIES.map((p) => {
+        const count = data[p] || 0;
+        const h = (count / max) * 180;
+        return (
+          <div key={p} className="bar-col">
+            <div className="bar" style={{ height: h, background: PY_BAR[p] }} />
+            <span className="bar-lbl">{PY_SHORT[p]}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function TopBars({ rows }) {
+  if (!rows?.length) return <Empty text="No data" />;
+  const max = rows[0][1] || 1;
+  return (
+    <div style={{ padding: "10px 0" }}>
+      {rows.map(([name, n]) => (
+        <div key={name} className="hbar-row">
+          <span className="hbar-lbl">{name}</span>
+          <div className="hbar-track">
+            <div className="hbar-fill" style={{ width: `${(n / max) * 100}%` }} />
+          </div>
+          <span className="hbar-val">{n}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 export default function Reports({ lang }) {
   const ar = lang === "ar";
@@ -23,11 +72,8 @@ export default function Reports({ lang }) {
     try {
       const r = await api.listViolations(filters);
       setRows(r);
-    } catch (e) {
-      setErr(e.message);
-    } finally {
-      setLoading(false);
-    }
+    } catch (e) { setErr(e.message); }
+    finally { setLoading(false); }
   }
 
   useEffect(() => { api.listEmployees().then(setEmployees).catch(() => {}); }, []);
@@ -64,35 +110,35 @@ export default function Reports({ lang }) {
   }
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
+    <div className="flex-gap">
+      <div className="page-head">
         <div>
-          <h2 style={{ fontSize: 22, fontWeight: 800, color: S.g800, margin: 0 }}>{t("rep")}</h2>
-          <p style={{ fontSize: 13, color: S.g400, marginTop: 2 }}>{ar ? "\u0633\u062C\u0644 \u0627\u0644\u0645\u062E\u0627\u0644\u0641\u0627\u062A \u0648\u0627\u0644\u062A\u062D\u0644\u064A\u0644\u0627\u062A" : "Violation history and analytics"}</p>
+          <h2 className="page-title">{t("rep")}</h2>
+          <p className="page-sub">{ar ? "\u0633\u062C\u0644 \u0627\u0644\u0645\u062E\u0627\u0644\u0641\u0627\u062A \u0648\u0627\u0644\u062A\u062D\u0644\u064A\u0644\u0627\u062A" : "Violation history and analytics"}</p>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <div className="page-actions">
           <BtnSec onClick={() => setFilterOpen(!filterOpen)}>{IC.filter} <span>{t("filters")}</span></BtnSec>
           <BtnPri onClick={exportExcel}>{IC.dl} <span>{t("export")}</span></BtnPri>
         </div>
       </div>
 
       {filterOpen && (
-        <Card style={{ background: S.g50 }}>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 14 }}>
+        <Card>
+          <div className="fg-row-4">
             <FG label={t("employee")}>
-              <select style={{ ...inp, cursor: "pointer" }} value={filters.employee} onChange={(e) => setFilters({ ...filters, employee: e.target.value })}>
+              <select className="finp" value={filters.employee} onChange={(e) => setFilters({ ...filters, employee: e.target.value })}>
                 <option value="">{t("all")}</option>
                 {employees.map((e) => <option key={e.id} value={e.name}>{e.name}</option>)}
               </select>
             </FG>
             <FG label={t("from")}>
-              <input style={inp} type="date" value={filters.date_from} onChange={(e) => setFilters({ ...filters, date_from: e.target.value })} />
+              <input className="finp" type="date" value={filters.date_from} onChange={(e) => setFilters({ ...filters, date_from: e.target.value })} />
             </FG>
             <FG label={t("to")}>
-              <input style={inp} type="date" value={filters.date_to} onChange={(e) => setFilters({ ...filters, date_to: e.target.value })} />
+              <input className="finp" type="date" value={filters.date_to} onChange={(e) => setFilters({ ...filters, date_to: e.target.value })} />
             </FG>
             <FG label={t("penLvl")}>
-              <select style={{ ...inp, cursor: "pointer" }} value={filters.penalty} onChange={(e) => setFilters({ ...filters, penalty: e.target.value })}>
+              <select className="finp" value={filters.penalty} onChange={(e) => setFilters({ ...filters, penalty: e.target.value })}>
                 <option value="">{t("all")}</option>
                 {PENALTIES.map((p) => <option key={p} value={p}>{p}</option>)}
               </select>
@@ -101,80 +147,61 @@ export default function Reports({ lang }) {
         </Card>
       )}
 
-      {err && <div style={{ color: S.err, fontSize: 13 }}>Error: {err}</div>}
+      {err && <div className="alert alert-err">Error: {err}</div>}
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 16 }}>
-        <KpiCard icon={IC.warn} iconBg="rgba(232,130,92,.1)" value={totals.count} label={t("totV")} />
-        <KpiCard icon={IC.users} iconBg="rgba(47,184,158,.1)" value={totals.emp} label={t("totE")} />
-        <KpiCard icon={IC.clock} iconBg="rgba(217,119,6,.1)" value={totals.ded} label={t("totD")} />
-        <KpiCard icon={IC.shieldR} iconBg="rgba(220,38,38,.1)" value={totals.freezes} label={t("actF")} />
+      <div className="grid-kpi">
+        <KpiCard icon={IC.warn}    tone="warn"   value={totals.count}    label={t("totV")} />
+        <KpiCard icon={IC.users}   tone="ok"     value={totals.emp}      label={t("totE")} />
+        <KpiCard icon={IC.clock}   tone="clock"  value={totals.ded}      label={t("totD")} />
+        <KpiCard icon={IC.shieldR} tone="shield" value={totals.freezes}  label={t("actF")} />
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
+      <div className="grid-split">
         <Card>
-          <h3 style={{ fontSize: 14, fontWeight: 700, color: S.g800, marginTop: 0, marginBottom: 16 }}>{t("penDist")}</h3>
-          {rows.length === 0 ? <Empty text={t("noData")} /> : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {PENALTIES.map((lv) => {
-                const count = byColor[lv] || 0;
-                const pct = rows.length ? (count / rows.length) * 100 : 0;
-                return (
-                  <div key={lv} style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <PenBadge level={lv} lang={lang} />
-                    <div style={{ flex: 1, height: 8, background: S.g100, borderRadius: 999, overflow: "hidden" }}>
-                      <div style={{ height: "100%", width: `${pct}%`, background: S.pri, borderRadius: 999 }} />
-                    </div>
-                    <span style={{ fontSize: 12, fontWeight: 700, color: S.g700, minWidth: 28, textAlign: ar ? "left" : "right" }}>{count}</span>
-                  </div>
-                );
-              })}
-            </div>
-          )}
+          <h3 className="card-title" style={{ marginBottom: 12 }}>{t("penDist")}</h3>
+          {rows.length === 0 ? <Empty text={t("noData")} /> : <PenaltyBars data={byColor} />}
         </Card>
-
         <Card>
-          <h3 style={{ fontSize: 14, fontWeight: 700, color: S.g800, marginTop: 0, marginBottom: 16 }}>{t("topInc")}</h3>
-          {topInc.length === 0 ? <Empty text={t("noData")} /> : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              {topInc.map(([name, n]) => {
-                const max = topInc[0][1] || 1;
-                return (
-                  <div key={name} style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <span style={{ fontSize: 12, color: S.g600, minWidth: 150 }}>{name}</span>
-                    <div style={{ flex: 1, height: 8, background: S.g100, borderRadius: 999, overflow: "hidden" }}>
-                      <div style={{ height: "100%", width: `${(n / max) * 100}%`, background: S.acc, borderRadius: 999 }} />
-                    </div>
-                    <span style={{ fontSize: 12, fontWeight: 700, color: S.g700 }}>{n}</span>
-                  </div>
-                );
-              })}
-            </div>
-          )}
+          <h3 className="card-title" style={{ marginBottom: 12 }}>{t("topInc")}</h3>
+          <TopBars rows={topInc} />
         </Card>
       </div>
 
       <Card flush>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 20px", borderBottom: `1px solid ${S.g100}` }}>
-          <h3 style={{ fontSize: 14, fontWeight: 700, color: S.g800, margin: 0 }}>{t("vHist")}</h3>
-          <span style={{ fontSize: 12, color: S.g400 }}>{rows.length} records{loading ? " \u2026" : ""}</span>
+        <div className="card-head">
+          <h3 className="card-title">{t("vHist")}</h3>
+          <span className="records-count">{rows.length} records{loading ? " \u2026" : ""}</span>
         </div>
         <div style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-            <thead><tr>{[t("employee"), t("cat"), t("inc"), t("pen"), t("ded"), t("subBy"), t("date"), t("act")].map((h) => <Th key={h} ar={ar}>{h}</Th>)}</tr></thead>
+          <table className="tbl">
+            <thead>
+              <tr>
+                <th>{t("employee")}</th>
+                <th>{t("cat")}</th>
+                <th>{t("inc")}</th>
+                <th>{t("pen")}</th>
+                <th>{t("ded")}</th>
+                <th>{t("subBy")}</th>
+                <th>{t("date")}</th>
+                <th>{t("act")}</th>
+              </tr>
+            </thead>
             <tbody>
               {rows.length === 0 ? (
                 <tr><td colSpan={8}><Empty text={t("noViol")} /></td></tr>
               ) : rows.map((r) => (
-                <tr key={r.id} style={{ borderBottom: `1px solid ${S.g100}` }}>
-                  <td style={{ padding: "12px 16px", fontWeight: 600, color: S.g700 }}>{r.employee_name}</td>
-                  <td style={{ padding: "12px 16px", color: S.g600 }}>{r.category}</td>
-                  <td style={{ padding: "12px 16px", color: S.g600 }}>{r.incident}</td>
-                  <td style={{ padding: "12px 16px" }}><PenBadge level={r.penalty_color} lang={lang} /></td>
-                  <td style={{ padding: "12px 16px", color: S.g700, fontWeight: 600 }}>{r.deduction_days} {t("days")}</td>
-                  <td style={{ padding: "12px 16px", color: S.g600 }}>{r.submitted_by}</td>
-                  <td style={{ padding: "12px 16px", color: S.g500, fontSize: 12 }}>{r.created_at?.slice(0, 16)}</td>
-                  <td style={{ padding: "12px 16px" }}>
-                    <button onClick={() => remove(r.id)} style={{ fontSize: 12, fontWeight: 600, padding: "5px 12px", borderRadius: S.r2, border: `1px solid ${S.g200}`, background: S.w, color: S.err, cursor: "pointer", fontFamily: "inherit" }}>{t("del")}</button>
+                <tr key={r.id}>
+                  <td className="td-primary">{r.employee_name}</td>
+                  <td className="td-muted">{r.category}</td>
+                  <td className="td-muted">{r.incident}</td>
+                  <td><PenBadge level={r.penalty_color} lang={lang} /></td>
+                  <td className="td-primary">{r.deduction_days}</td>
+                  <td className="td-muted">{r.submitted_by}</td>
+                  <td className="td-date">{r.created_at?.slice(0, 10)}</td>
+                  <td>
+                    <div className="row-actions">
+                      <button className="act-del" onClick={() => remove(r.id)} title={t("del")}>{IC.trash}</button>
+                    </div>
                   </td>
                 </tr>
               ))}

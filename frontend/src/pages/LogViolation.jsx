@@ -1,10 +1,16 @@
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../api";
-import { S } from "../tokens";
 import { L } from "../i18n";
 import { IC } from "../icons";
-import { Card, BtnPri, BtnSec, PenBadge, FG, inp } from "../components";
-import { GUIDE } from "../tokens";
+import { Card, BtnPri, BtnSec, PenBadge, FG } from "../components";
+
+const GUIDE = [
+  { lv: "Yellow",        dd: "0",   ic: "\u{1F7E1}" },
+  { lv: "Orange",        dd: "0.5", ic: "\u{1F7E0}" },
+  { lv: "Red",           dd: "2",   ic: "\u{1F534}" },
+  { lv: "Black",         dd: "4",   ic: "\u{2B1B}" },
+  { lv: "Investigation", dd: "\u2014", ic: "\u{1F50D}" },
+];
 
 export default function LogViolation({ lang }) {
   const ar = lang === "ar";
@@ -64,8 +70,7 @@ export default function LogViolation({ lang }) {
   async function submit() {
     if (!emp) { setMsg({ type: "err", text: t("employee") + " *" }); return; }
     if (!rep.trim()) { setMsg({ type: "err", text: t("hrRep") + " *" }); return; }
-    setSaving(true);
-    setMsg(null);
+    setSaving(true); setMsg(null);
     try {
       const proofB64 = proof.dataUrl ? proof.dataUrl.split(",")[1] || "" : "";
       const payload = {
@@ -86,87 +91,87 @@ export default function LogViolation({ lang }) {
     }
   }
 
-  if (!matrix) return <div style={{ color: S.g400, fontSize: 13 }}>Loading\u2026</div>;
+  if (!matrix) return <div style={{ color: "#8896A5", fontSize: 13 }}>Loading\u2026</div>;
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
+    <div className="flex-gap">
+      <div className="page-head">
         <div>
-          <h2 style={{ fontSize: 22, fontWeight: 800, color: S.g800, margin: 0 }}>{t("regV")}</h2>
-          <p style={{ fontSize: 13, color: S.g400, marginTop: 2 }}>{ar ? "\u0623\u062F\u062E\u0644 \u0627\u0644\u062A\u0641\u0627\u0635\u064A\u0644" : "Fill in the details"}</p>
+          <h2 className="page-title">{t("regV")}</h2>
+          <p className="page-sub">{ar ? "\u0623\u062F\u062E\u0644 \u0627\u0644\u062A\u0641\u0627\u0635\u064A\u0644 \u0648\u0623\u0634\u0639\u0631 \u0627\u0644\u0645\u0648\u0638\u0641" : "Fill in the details and notify the employee"}</p>
         </div>
         <BtnSec onClick={() => setGuideOpen(!guideOpen)}>{IC.info} <span>{t("pGuide")}</span></BtnSec>
       </div>
 
       {guideOpen && (
-        <Card style={{ background: S.priL, borderColor: S.priM }}>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(5,1fr)", gap: 10 }}>
+        <Card style={{ background: "#EFF6FF", borderColor: "rgba(37,99,235,.15)" }}>
+          <div className="guide-grid">
             {GUIDE.map((g) => (
-              <div key={g.lv} style={{ background: S.w, borderRadius: S.r2, padding: "14px 10px", textAlign: "center", border: `1px solid ${S.g200}` }}>
-                <div style={{ fontSize: 26, marginBottom: 8 }}>{g.ic}</div>
+              <div key={g.lv} className="guide-card">
+                <div className="ic">{g.ic}</div>
                 <PenBadge level={g.lv} size="lg" lang={lang} />
-                <div style={{ fontSize: 11, color: S.g400, marginTop: 6 }}>{guideLabels[g.lv]}</div>
-                <div style={{ fontSize: 12, fontWeight: 700, color: S.g700, marginTop: 4 }}>{g.dd !== "\u2014" ? `${g.dd} ${t("days")}` : "\u2014"}</div>
+                <div className="sub">{guideLabels[g.lv]}</div>
+                <div className="val">{g.dd !== "\u2014" ? `${g.dd} ${t("days")}` : "\u2014"}</div>
               </div>
             ))}
           </div>
         </Card>
       )}
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 340px", gap: 22 }}>
+      <div className="grid-log">
         <Card>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginBottom: 20 }}>
+          <div className="fg-row" style={{ marginBottom: 20 }}>
             <FG label={t("vCat")}>
-              <select style={{ ...inp, cursor: "pointer" }} value={cat} onChange={(e) => setCat(e.target.value)}>
+              <select className="finp" value={cat} onChange={(e) => setCat(e.target.value)}>
                 {Object.keys(matrix.matrix).map((c) => <option key={c} value={c}>{c}</option>)}
               </select>
             </FG>
             <FG label={t("incType")}>
-              <select style={{ ...inp, cursor: "pointer" }} value={inc} onChange={(e) => setInc(e.target.value)}>
+              <select className="finp" value={inc} onChange={(e) => setInc(e.target.value)}>
                 {cat && Object.keys(matrix.matrix[cat]).map((i) => <option key={i} value={i}>{i}</option>)}
               </select>
             </FG>
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginBottom: 20 }}>
+          <div className="fg-row" style={{ marginBottom: 20 }}>
             <FG label={`${t("employee")} *`}>
-              <select style={{ ...inp, cursor: "pointer" }} value={emp} onChange={(e) => setEmp(e.target.value)}>
+              <select className="finp" value={emp} onChange={(e) => setEmp(e.target.value)}>
                 <option value="">{ar ? "\u2014 \u0627\u062E\u062A\u0631 \u2014" : "\u2014 select \u2014"}</option>
                 {employees.map((e) => <option key={e.id} value={e.name}>{e.name}</option>)}
               </select>
             </FG>
             <FG label={`${t("hrRep")} *`}>
-              <input style={inp} value={rep} onChange={(e) => setRep(e.target.value)} />
+              <input className="finp" value={rep} onChange={(e) => setRep(e.target.value)} placeholder={ar ? "\u0627\u0633\u0645 \u0645\u0645\u062B\u0644 HR" : "HR rep name"} />
             </FG>
           </div>
           <div style={{ marginBottom: 20 }}>
             <FG label={t("comments")}>
-              <textarea style={{ ...inp, resize: "vertical", minHeight: 88 }} value={comment} onChange={(e) => setComment(e.target.value)} />
+              <textarea className="finp" value={comment} onChange={(e) => setComment(e.target.value)} placeholder={ar ? "\u0645\u0644\u0627\u062D\u0638\u0627\u062A \u0625\u0636\u0627\u0641\u064A\u0629\u2026" : "Additional notes about this violation..."} />
             </FG>
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginBottom: 20 }}>
+          <div className="fg-row" style={{ marginBottom: 20 }}>
             <FG label={t("proof")}>
-              <label style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", borderRadius: S.r2, border: `1.5px dashed ${S.g300}`, cursor: "pointer", background: S.g50, fontSize: 13, color: S.g500 }}>
+              <label className="upload">
                 {IC.upload}
-                <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{proof.name || (ar ? "\u0627\u062E\u062A\u0631 \u0635\u0648\u0631\u0629..." : "Choose image...")}</span>
-                <input type="file" accept="image/*" onChange={onProofChange} style={{ display: "none" }} />
+                <span>{proof.name || (ar ? "\u0625\u0631\u0641\u0642 \u0635\u0648\u0631\u0629\u2026" : "Attach Proof")}</span>
+                <input type="file" accept="image/*" onChange={onProofChange} />
               </label>
               {proof.dataUrl && (
                 <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 8 }}>
-                  <img src={proof.dataUrl} alt="proof" style={{ width: 56, height: 56, objectFit: "cover", borderRadius: S.r2, border: `1px solid ${S.g200}` }} />
-                  <button type="button" onClick={() => setProof({ name: "", dataUrl: "" })} style={{ fontSize: 11, padding: "4px 10px", borderRadius: S.r2, border: `1px solid ${S.g200}`, background: S.w, color: S.err, cursor: "pointer", fontFamily: "inherit" }}>{t("del")}</button>
+                  <img src={proof.dataUrl} alt="proof" style={{ width: 56, height: 56, objectFit: "cover", borderRadius: 10, border: "1px solid #D9DDE4" }} />
+                  <button type="button" onClick={() => setProof({ name: "", dataUrl: "" })} className="btn btn-sec" style={{ padding: "5px 12px", fontSize: 11, color: "#DC2626" }}>{t("del")}</button>
                 </div>
               )}
             </FG>
             <FG label={t("dedOver")}>
-              <input style={inp} type="number" value={override} step="0.5" onChange={(e) => setOverride(parseFloat(e.target.value))} />
+              <input className="finp" type="number" value={override} step="0.5" onChange={(e) => setOverride(parseFloat(e.target.value))} />
             </FG>
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "13px 16px", borderRadius: S.r2, background: S.errL, border: "1px solid rgba(220,38,38,.15)", marginBottom: 22 }}>
-            <input type="checkbox" id="fi" checked={force} onChange={(e) => setForce(e.target.checked)} style={{ width: 16, height: 16, accentColor: S.err, cursor: "pointer" }} />
-            <label htmlFor="fi" style={{ fontSize: 13, fontWeight: 600, color: S.err, cursor: "pointer" }}>{t("forceInv")}</label>
+          <div className="check-strip" style={{ marginBottom: 22 }}>
+            <input type="checkbox" id="fi" checked={force} onChange={(e) => setForce(e.target.checked)} />
+            <label htmlFor="fi">{t("forceInv")}</label>
           </div>
           {msg && (
-            <div style={{ padding: "10px 14px", borderRadius: S.r2, marginBottom: 16, fontSize: 13, fontWeight: 600, background: msg.type === "ok" ? S.okL : S.errL, color: msg.type === "ok" ? S.ok : S.err }}>
+            <div className={`alert alert-${msg.type === "ok" ? "ok" : "err"}`} style={{ marginBottom: 16 }}>
               {msg.text}
             </div>
           )}
@@ -174,30 +179,34 @@ export default function LogViolation({ lang }) {
         </Card>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-          <Card style={{ background: S.infoL, borderColor: "rgba(37,99,235,.15)" }}>
-            <h4 style={{ fontSize: 13, fontWeight: 700, color: S.info, marginTop: 0, marginBottom: 12, display: "flex", alignItems: "center", gap: 7 }}>{IC.shield}<span>{t("escPath")}</span></h4>
+          <Card style={{ background: "#EFF6FF", borderColor: "rgba(37,99,235,.15)" }}>
+            <h4 className="card-title" style={{ color: "#2563EB", marginBottom: 12, display: "flex", alignItems: "center", gap: 7 }}>
+              {IC.shield}<span>{t("escPath")}</span>
+            </h4>
             {(meta?.escalation || []).map((step, i) => {
               const isNext = preview && preview.penalty_color === step && !meta.escalation.slice(0, i).some((s) => s === step);
               return (
-                <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 0", opacity: isNext ? 1 : 0.75 }}>
-                  <span style={{ width: 22, height: 22, borderRadius: "50%", flexShrink: 0, background: S.w, border: `1.5px solid ${isNext ? S.info : S.g200}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, color: isNext ? S.info : S.g400 }}>{i + 1}</span>
+                <div key={i} className={`esc-row${isNext ? " active" : ""}`}>
+                  <span className="esc-step">{i + 1}</span>
                   <PenBadge level={step} lang={lang} />
                 </div>
               );
             })}
           </Card>
           <Card>
-            <h4 style={{ fontSize: 13, fontWeight: 700, color: S.g800, marginTop: 0, marginBottom: 12 }}>{t("details")}</h4>
-            {[
-              { label: t("reset"), value: `${meta?.reset || 30} ${t("days")}` },
-              { label: t("maxS"), value: meta?.escalation?.length || 0 },
-              { label: t("cat"), value: cat },
-            ].map((r, i, a) => (
-              <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "9px 0", borderBottom: i < a.length - 1 ? `1px solid ${S.g100}` : "none" }}>
-                <span style={{ fontSize: 12, color: S.g400 }}>{r.label}</span>
-                <span style={{ fontSize: 13, fontWeight: 600, color: S.g700 }}>{r.value}</span>
-              </div>
-            ))}
+            <h4 className="card-title" style={{ marginBottom: 6 }}>{t("details")}</h4>
+            <div className="kv-row">
+              <span className="kv-k">{t("reset")}</span>
+              <span className="kv-v">{meta?.reset || 30} {t("days")}</span>
+            </div>
+            <div className="kv-row">
+              <span className="kv-k">{t("maxS")}</span>
+              <span className="kv-v">{meta?.escalation?.length || 0}</span>
+            </div>
+            <div className="kv-row">
+              <span className="kv-k">{t("cat")}</span>
+              <span className="kv-v">{cat}</span>
+            </div>
           </Card>
         </div>
       </div>
