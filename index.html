@@ -197,6 +197,22 @@ body.rtl .search-wrap .finp{padding-left:14px;padding-right:40px}
 .chart-wrap{position:relative;width:100%;height:260px}
 .chart-wrap.sm{height:230px}
 
+.modal-bd{position:fixed;inset:0;background:rgba(19,30,43,.45);display:flex;align-items:center;justify-content:center;z-index:300;opacity:0;pointer-events:none;transition:opacity .18s}
+.modal-bd.show{opacity:1;pointer-events:auto}
+.modal{background:var(--w);border-radius:var(--r3);box-shadow:var(--sh2);width:100%;max-width:460px;max-height:90vh;overflow:auto;transform:translateY(10px);transition:transform .22s cubic-bezier(.4,0,.2,1)}
+.modal-bd.show .modal{transform:translateY(0)}
+.modal.lg{max-width:640px}
+.modal-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:20px 22px 14px}
+.modal-title{font-size:16px;font-weight:800;color:var(--g800);letter-spacing:-.2px}
+.modal-sub{font-size:12px;color:var(--g400);margin-top:3px}
+.modal-x{width:28px;height:28px;border-radius:var(--rF);border:none;background:var(--g50);color:var(--g500);cursor:pointer;display:inline-flex;align-items:center;justify-content:center}
+.modal-x:hover{background:var(--g100);color:var(--g700)}
+.modal-body{padding:0 22px 18px;display:flex;flex-direction:column;gap:14px}
+.modal-foot{padding:14px 22px 22px;display:flex;gap:10px;justify-content:flex-end;border-top:1px solid var(--g100);margin-top:4px}
+
+#toast{position:fixed;bottom:24px;left:50%;transform:translate(-50%,80px);background:var(--g800);color:#fff;padding:11px 22px;border-radius:var(--rF);font-size:13px;font-weight:500;box-shadow:var(--sh2);z-index:400;opacity:0;transition:transform .25s cubic-bezier(.4,0,.2,1),opacity .25s}
+#toast.show{opacity:1;transform:translate(-50%,0)}
+
 .brand{display:flex;align-items:center;gap:11px}
 .brand-logo{width:40px;height:40px;border-radius:10px;background:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:var(--sh1);border:1px solid var(--g100)}
 .brand-logo svg{width:28px;height:28px}
@@ -313,7 +329,7 @@ body.rtl .search-wrap .finp{padding-left:14px;padding-right:40px}
           </div>
           <span class="kpi-trend up">↑ 12%</span>
         </div>
-        <div><div class="kpi-val">28</div><div class="kpi-lbl" data-i18n="total_violations">Total Violations</div></div>
+        <div><div class="kpi-val" id="kpiTotal">0</div><div class="kpi-lbl" data-i18n="total_violations">Total Violations</div></div>
         <div class="kpi-sub" data-i18n="vs_last_month">vs last month</div>
       </div>
 
@@ -322,10 +338,9 @@ body.rtl .search-wrap .finp{padding-left:14px;padding-right:40px}
           <div class="kpi-ico" style="background:var(--infoL)">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--info)" stroke-width="2"><circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><circle cx="17" cy="9" r="2.6"/><path d="M15 20c0-2.8 2-5 4-5s2.5 1 2.5 2"/></svg>
           </div>
-          <span class="kpi-trend dn">↓ 2%</span>
         </div>
-        <div><div class="kpi-val">6</div><div class="kpi-lbl" data-i18n="employees">Employees</div></div>
-        <div class="kpi-sub" data-i18n="across_depts">across 3 departments</div>
+        <div><div class="kpi-val" id="kpiEmployees">0</div><div class="kpi-lbl" data-i18n="employees">Employees</div></div>
+        <div class="kpi-sub" id="kpiEmployeesSub" data-i18n="across_depts">across 0 departments</div>
       </div>
 
       <div class="card kpi-card">
@@ -333,9 +348,8 @@ body.rtl .search-wrap .finp{padding-left:14px;padding-right:40px}
           <div class="kpi-ico" style="background:var(--warnL)">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--warn)" stroke-width="2"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 14"/></svg>
           </div>
-          <span class="kpi-trend up">↑ 8%</span>
         </div>
-        <div><div class="kpi-val">14.5</div><div class="kpi-lbl" data-i18n="deduction_days">Deduction Days</div></div>
+        <div><div class="kpi-val" id="kpiDeduction">0</div><div class="kpi-lbl" data-i18n="deduction_days">Deduction Days</div></div>
         <div class="kpi-sub" data-i18n="cumulative">cumulative this cycle</div>
       </div>
 
@@ -344,9 +358,8 @@ body.rtl .search-wrap .finp{padding-left:14px;padding-right:40px}
           <div class="kpi-ico" style="background:var(--errL)">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--err)" stroke-width="2"><path d="M12 2l8 4v6c0 5-3.5 9-8 10-4.5-1-8-5-8-10V6l8-4z"/></svg>
           </div>
-          <span class="kpi-trend up">2</span>
         </div>
-        <div><div class="kpi-val">2</div><div class="kpi-lbl" data-i18n="active_freezes">Active Freezes</div></div>
+        <div><div class="kpi-val" id="kpiFreezes">0</div><div class="kpi-lbl" data-i18n="active_freezes">Active Freezes</div></div>
         <div class="kpi-sub" data-i18n="promotion_freezes">promotion freezes</div>
       </div>
     </div>
@@ -418,6 +431,7 @@ body.rtl .search-wrap .finp{padding-left:14px;padding-right:40px}
           </button>
         </div>
 
+        <form onsubmit="submitViolation(event)">
         <div class="g2" style="gap:16px;margin-bottom:16px">
           <div class="fg">
             <label class="flbl" data-i18n="violation_category">Violation Category</label>
@@ -427,28 +441,24 @@ body.rtl .search-wrap .finp{padding-left:14px;padding-right:40px}
           </div>
           <div class="fg">
             <label class="flbl" data-i18n="incident_type">Incident Type</label>
-            <select class="fsel">
-              <option>Late Arrival</option><option>Exceed Breaks</option><option>No-Show</option><option>Mobile Phone</option><option>Food Area</option>
-            </select>
+            <select class="fsel" id="vInc"></select>
           </div>
         </div>
 
         <div class="g2" style="gap:16px;margin-bottom:16px">
           <div class="fg">
             <label class="flbl"><span data-i18n="employee_req">Employee</span> *</label>
-            <select class="fsel">
-              <option>Ahmed Hassan</option><option>Sara Al-Rashidi</option><option>Mohammed Ali</option><option>Fatima Noor</option><option>Khalid Omar</option><option>Layla Ibrahim</option>
-            </select>
+            <select class="fsel" id="vEmp"></select>
           </div>
           <div class="fg">
             <label class="flbl"><span data-i18n="hr_rep">HR Representative</span> *</label>
-            <input class="finp" placeholder="HR rep name"/>
+            <input id="vRep" class="finp" placeholder="HR rep name"/>
           </div>
         </div>
 
         <div class="fg" style="margin-bottom:16px">
           <label class="flbl" data-i18n="comments">Comments</label>
-          <textarea class="ftxt" placeholder="Additional notes about this violation..."></textarea>
+          <textarea id="vComments" class="ftxt" placeholder="Additional notes about this violation..."></textarea>
         </div>
 
         <div class="g2" style="gap:16px;margin-bottom:16px">
@@ -459,19 +469,22 @@ body.rtl .search-wrap .finp{padding-left:14px;padding-right:40px}
           </label>
           <div class="fg">
             <label class="flbl" data-i18n="deduction_override">Deduction Override</label>
-            <input class="finp" type="number" step="0.5" value="-1"/>
+            <input id="vOverride" class="finp" type="number" step="0.5" value="-1"/>
           </div>
         </div>
 
-        <label class="force-box" style="margin-bottom:18px">
-          <input type="checkbox"/>
+        <label class="force-box" style="margin-bottom:12px">
+          <input id="vForce" type="checkbox"/>
           <span data-i18n="force_investigation">Force Investigation</span>
         </label>
 
-        <button class="btn btn-pri btn-wide">
+        <div id="vErr" style="display:none;background:var(--errL);border:1px solid rgba(220,38,38,.2);color:#991B1B;padding:10px 14px;border-radius:var(--r2);font-size:13px;font-weight:500;margin-bottom:14px"></div>
+
+        <button type="submit" class="btn btn-pri btn-wide">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="5 12 10 17 19 7"/></svg>
           <span data-i18n="submit_notify">Submit & Notify</span>
         </button>
+        </form>
       </div>
 
       <div style="display:flex;flex-direction:column;gap:18px">
@@ -503,14 +516,14 @@ body.rtl .search-wrap .finp{padding-left:14px;padding-right:40px}
     <div class="pg-hdr">
       <div>
         <h2 class="pg-title" data-i18n="employees_title">Employees</h2>
-        <p class="pg-sub"><span id="empCount">6</span> <span data-i18n="employees_across">employees across 3 departments</span></p>
+        <p class="pg-sub"><span id="empCount">0</span> <span data-i18n="employees">employees</span> <span data-i18n="employees_across_suffix">across</span> <span id="empDepts">0</span> <span data-i18n="departments_suffix">departments</span></p>
       </div>
       <div class="row" style="gap:12px">
         <div class="search-wrap">
           <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.6" y2="16.6"/></svg>
           <input id="empSearch" class="finp" placeholder="Search..." oninput="renderEmployees()"/>
         </div>
-        <button class="btn btn-pri">
+        <button class="btn btn-pri" onclick="openEmployeeModal()">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
           <span data-i18n="add_employee">Add Employee</span>
         </button>
@@ -559,7 +572,7 @@ body.rtl .search-wrap .finp{padding-left:14px;padding-right:40px}
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--warn)" stroke-width="2"><path d="M12 2L2 20h20L12 2z"/></svg>
           </div>
         </div>
-        <div><div class="kpi-val">28</div><div class="kpi-lbl" data-i18n="total_violations">Total Violations</div></div>
+        <div><div class="kpi-val" id="rkpiTotal">0</div><div class="kpi-lbl" data-i18n="total_violations">Total Violations</div></div>
       </div>
       <div class="card kpi-card">
         <div class="kpi-top">
@@ -567,7 +580,7 @@ body.rtl .search-wrap .finp{padding-left:14px;padding-right:40px}
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--pri)" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/></svg>
           </div>
         </div>
-        <div><div class="kpi-val">6</div><div class="kpi-lbl" data-i18n="employees">Employees</div></div>
+        <div><div class="kpi-val" id="rkpiEmployees">0</div><div class="kpi-lbl" data-i18n="employees">Employees</div></div>
       </div>
       <div class="card kpi-card">
         <div class="kpi-top">
@@ -575,7 +588,7 @@ body.rtl .search-wrap .finp{padding-left:14px;padding-right:40px}
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--warn)" stroke-width="2"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 14"/></svg>
           </div>
         </div>
-        <div><div class="kpi-val">14.5</div><div class="kpi-lbl" data-i18n="deduction_days">Deduction Days</div></div>
+        <div><div class="kpi-val" id="rkpiDeduction">0</div><div class="kpi-lbl" data-i18n="deduction_days">Deduction Days</div></div>
       </div>
       <div class="card kpi-card">
         <div class="kpi-top">
@@ -583,7 +596,7 @@ body.rtl .search-wrap .finp{padding-left:14px;padding-right:40px}
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--err)" stroke-width="2"><path d="M12 2l8 4v6c0 5-3.5 9-8 10-4.5-1-8-5-8-10V6l8-4z"/></svg>
           </div>
         </div>
-        <div><div class="kpi-val">2</div><div class="kpi-lbl" data-i18n="active_freezes">Active Freezes</div></div>
+        <div><div class="kpi-val" id="rkpiFreezes">0</div><div class="kpi-lbl" data-i18n="active_freezes">Active Freezes</div></div>
       </div>
     </div>
 
@@ -681,40 +694,127 @@ body.rtl .search-wrap .finp{padding-left:14px;padding-right:40px}
 
 </div>
 
+<!-- ═════ ADD / EDIT EMPLOYEE MODAL ═════ -->
+<div id="empModal" class="modal-bd" onclick="if(event.target===this)closeEmployeeModal()">
+  <div class="modal">
+    <div class="modal-head">
+      <div>
+        <div id="emTitle" class="modal-title" data-i18n="add_employee">Add Employee</div>
+        <div class="modal-sub" data-i18n="add_emp_sub">Enter employee details</div>
+      </div>
+      <button class="modal-x" onclick="closeEmployeeModal()" aria-label="Close">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>
+      </button>
+    </div>
+    <form class="modal-body" onsubmit="saveEmployee(event)">
+      <div class="fg">
+        <label class="flbl" data-i18n="full_name">Full Name</label>
+        <input id="emName" class="finp" placeholder="e.g. Ahmed Hassan"/>
+      </div>
+      <div class="fg">
+        <label class="flbl" data-i18n="email">Email</label>
+        <input id="emEmail" class="finp" type="email" placeholder="name@tg.sa"/>
+      </div>
+      <div class="fg">
+        <label class="flbl" data-i18n="department">Department</label>
+        <select id="emDept" class="fsel">
+          <option>Operations</option><option>Sales</option><option>Call Center</option><option>IT</option><option>Finance</option><option>HR</option>
+        </select>
+      </div>
+      <div id="emErr" style="display:none;background:var(--errL);border:1px solid rgba(220,38,38,.2);color:#991B1B;padding:9px 13px;border-radius:var(--r2);font-size:12.5px;font-weight:500"></div>
+      <div class="modal-foot" style="margin:6px -22px -4px">
+        <button type="button" class="btn btn-sec" onclick="closeEmployeeModal()" data-i18n="cancel">Cancel</button>
+        <button type="submit" class="btn btn-pri" data-i18n="save">Save</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ═════ VIEW EMPLOYEE MODAL ═════ -->
+<div id="viewModal" class="modal-bd" onclick="if(event.target===this)closeViewModal()">
+  <div class="modal lg">
+    <div class="modal-head">
+      <div>
+        <div id="viewTitle" class="modal-title">Employee</div>
+        <div id="viewSub" class="modal-sub"></div>
+      </div>
+      <button class="modal-x" onclick="closeViewModal()" aria-label="Close">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>
+      </button>
+    </div>
+    <div id="viewBody" class="modal-body" style="padding-bottom:22px"></div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
 <script>
-// ─────── DATA ───────
-const EMPLOYEES = [
-  {name:"Ahmed Hassan",     email:"ahmed@tg.sa",  dept:"Operations", violations:3, status:"ok"},
-  {name:"Sara Al-Rashidi",  email:"sara@tg.sa",   dept:"Sales",      violations:1, status:"ok"},
-  {name:"Mohammed Ali",     email:"mo@tg.sa",     dept:"Call Center",violations:5, status:"fr"},
-  {name:"Fatima Noor",      email:"fatima@tg.sa", dept:"Call Center",violations:0, status:"ok"},
-  {name:"Khalid Omar",      email:"khalid@tg.sa", dept:"Operations", violations:2, status:"ok"},
-  {name:"Layla Ibrahim",    email:"layla@tg.sa",  dept:"Sales",      violations:4, status:"fr"}
-];
-const HISTORY = [
-  {emp:"Ahmed Hassan",    cat:"Attendance", inc:"Late Arrival",   p:"yellow",      d:"0",   by:"Amin",    date:"2026-04-12"},
-  {emp:"Mohammed Ali",    cat:"Abusing",    inc:"Aux Abuse",      p:"orange",      d:"0.5", by:"Amin",    date:"2026-04-11"},
-  {emp:"Sara Al-Rashidi", cat:"Policy",     inc:"Mobile Phone",   p:"red",         d:"2",   by:"HR Admin",date:"2026-04-10"},
-  {emp:"Mohammed Ali",    cat:"Attendance", inc:"No-Show",        p:"red",         d:"2",   by:"Amin",    date:"2026-04-09"},
-  {emp:"Layla Ibrahim",   cat:"Personal",   inc:"Unprofessional", p:"black",       d:"4",   by:"HR Admin",date:"2026-04-08"},
-  {emp:"Ahmed Hassan",    cat:"Attendance", inc:"Exceed Breaks",  p:"yellow",      d:"0",   by:"Amin",    date:"2026-04-07"},
-  {emp:"Khalid Omar",     cat:"Policy",     inc:"Food Area",      p:"orange",      d:"0.5", by:"HR Admin",date:"2026-04-05"}
-];
-const PENALTY_DIST = [
-  {k:"yellow",        n:8, c:"#D97706"},
-  {k:"orange",        n:6, c:"#EA580C"},
-  {k:"red",           n:4, c:"#DC2626"},
-  {k:"black",         n:2, c:"#1E293B"},
-  {k:"investigation", n:1, c:"#7C3AED"}
-];
-const TOP_INCIDENTS = [
-  {k:"Late Arrival",  n:8},
-  {k:"No-Show",       n:5},
-  {k:"Exceed Breaks", n:4},
-  {k:"Mobile Phone",  n:3},
-  {k:"Food Area",     n:3}
-];
-const TREND = {labels:["Nov","Dec","Jan","Feb","Mar","Apr"], data:[4,7,5,9,6,8]};
+// ─────── STATE + STORAGE ───────
+const STORE_KEY = "tg_hr_v1";
+let state = { employees: [], violations: [] };
+function loadState(){
+  try{
+    const raw = localStorage.getItem(STORE_KEY);
+    if(raw){ const o = JSON.parse(raw); state.employees = o.employees||[]; state.violations = o.violations||[]; }
+  }catch(e){ console.warn("loadState failed",e); }
+}
+function saveState(){ try{ localStorage.setItem(STORE_KEY, JSON.stringify(state)); }catch(e){ console.warn("saveState failed",e); } }
+
+// ─────── CONSTANTS ───────
+const PENALTY_COLORS = { yellow:"#D97706", orange:"#EA580C", red:"#DC2626", black:"#1E293B", investigation:"#7C3AED" };
+const PENALTY_ORDER  = ["yellow","yellow","orange","red","black","investigation"];
+const DEFAULT_DEDUCTION = { yellow:0, orange:0.5, red:2, black:4, investigation:0 };
+const RESET_WINDOW_DAYS = 30;
+const CATEGORY_INCIDENTS = {
+  "Attendance":["Late Arrival","Exceed Breaks","No-Show","Early Leave"],
+  "Policy":["Mobile Phone","Food Area","Dress Code","Smoking"],
+  "Abusing":["Aux Abuse","System Abuse","Verbal Abuse"],
+  "Personal":["Unprofessional","Harassment","Misconduct"]
+};
+
+// ─────── HELPERS ───────
+function today(){ const d=new Date(); return d.toISOString().slice(0,10); }
+function daysBetween(a,b){ return Math.floor((new Date(b)-new Date(a))/86400000); }
+function employeeViolations(name){ return state.violations.filter(v=>v.emp===name); }
+function recentViolations(name){ const t=today(); return employeeViolations(name).filter(v=>daysBetween(v.date,t) <= RESET_WINDOW_DAYS); }
+function nextPenaltyFor(name, force){
+  if(force) return "investigation";
+  const step = Math.min(recentViolations(name).length, PENALTY_ORDER.length-1);
+  return PENALTY_ORDER[step];
+}
+function employeeStatus(name){
+  const recent = recentViolations(name);
+  const heavy = recent.some(v=>["red","black","investigation"].includes(v.p));
+  return heavy ? "fr" : "ok";
+}
+function employeeCount(name){ return employeeViolations(name).length; }
+
+// ─────── DERIVED DATA ───────
+function penaltyDistribution(){
+  const o = {yellow:0,orange:0,red:0,black:0,investigation:0};
+  state.violations.forEach(v=>{ if(o[v.p]!=null) o[v.p]++; });
+  return Object.keys(o).map(k=>({k,n:o[k],c:PENALTY_COLORS[k]}));
+}
+function topIncidents(limit=5){
+  const map={}; state.violations.forEach(v=>{ map[v.inc]=(map[v.inc]||0)+1; });
+  return Object.entries(map).sort((a,b)=>b[1]-a[1]).slice(0,limit).map(([k,n])=>({k,n}));
+}
+function trendLast6Months(){
+  const now=new Date(); const labels=[]; const bucket={};
+  for(let i=5;i>=0;i--){ const d=new Date(now.getFullYear(),now.getMonth()-i,1);
+    const key=d.toLocaleString("en-US",{month:"short"}); labels.push(key); bucket[`${d.getFullYear()}-${d.getMonth()}`]=0; }
+  state.violations.forEach(v=>{ const d=new Date(v.date); const key=`${d.getFullYear()}-${d.getMonth()}`;
+    if(bucket[key]!=null) bucket[key]++; });
+  return {labels, data:Object.values(bucket)};
+}
+function categoryDistribution(){
+  const map={}; state.violations.forEach(v=>{ map[v.cat]=(map[v.cat]||0)+1; });
+  return {labels:Object.keys(map), data:Object.values(map)};
+}
+function totalDeductionDays(){ return state.violations.reduce((s,v)=>s+(parseFloat(v.d)||0),0); }
+function activeFreezeCount(){ return state.employees.filter(e=>employeeStatus(e.name)==="fr").length; }
+function departmentCount(){ return new Set(state.employees.map(e=>e.dept)).size; }
+
 
 const PAGE_TITLES = {dashboard:"nav_dashboard",log:"nav_log",employees:"nav_employees",reports:"nav_reports",settings:"nav_settings"};
 
@@ -743,8 +843,9 @@ const LANG = {
     force_investigation:"تحويل مباشر للتحقيق", submit_notify:"إرسال وإشعار",
     escalation_path:"مسار التصعيد", details:"التفاصيل",
     reset_window:"فترة السماح", days:"يوم", max_steps:"الحد الأقصى", category:"الفئة",
-    employees_title:"الموظفون", employees_across:"موظفين في 3 أقسام",
-    add_employee:"إضافة موظف",
+    employees_title:"الموظفون", employees_across:"موظفين", employees_across_suffix:"في", departments_suffix:"أقسام",
+    add_employee:"إضافة موظف", add_emp_sub:"أدخل بيانات الموظف", email:"البريد الإلكتروني", cancel:"إلغاء", save:"حفظ",
+    across_depts:"في 0 أقسام",
     full_name:"الاسم الكامل", department:"القسم", total_violations_col:"إجمالي المخالفات", status:"الحالة", action:"الإجراء",
     reports_title:"التقارير", reports_sub:"سجل المخالفات والإحصائيات",
     filters:"تصفية", export_excel:"تصدير Excel",
@@ -774,7 +875,7 @@ function toggleLang(){
   if(curLang==="en") restoreEn();
   applyI18n();
   updateTopbarTitle();
-  renderRecent(); renderHistory(); renderEmployees(); renderPenaltyBars();
+  refreshAll();
 }
 // snapshot original EN text so we can restore on toggle
 const EN_BACKUP=new Map();
@@ -822,8 +923,16 @@ function violationColor(n){
   if(n<=3) return "var(--warn)";
   return "var(--err)";
 }
+function emptyRow(colspan, msg){
+  return `<tr><td colspan="${colspan}" style="padding:48px 16px"><div class="empty"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" style="color:var(--g300)"><rect x="3" y="4" width="18" height="16" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/></svg><div style="font-size:13px">${msg}</div></div></td></tr>`;
+}
+function sortedViolations(){ return [...state.violations].sort((a,b)=>b.date.localeCompare(a.date)); }
+
 function renderRecent(){
-  const rows = HISTORY.slice(0,5).map(h=>`
+  const body=document.getElementById("recentBody"); if(!body) return;
+  const list=sortedViolations().slice(0,5);
+  if(!list.length){ body.innerHTML=emptyRow(5,curLang==="ar"?"لا توجد مخالفات مسجّلة بعد":"No violations recorded yet"); return; }
+  body.innerHTML=list.map(h=>`
     <tr>
       <td style="font-weight:600;color:var(--g800)">${h.emp}</td>
       <td>${h.inc}</td>
@@ -831,10 +940,13 @@ function renderRecent(){
       <td style="font-weight:700;color:var(--g800)">${h.d} d</td>
       <td style="color:var(--g400)">${h.date}</td>
     </tr>`).join("");
-  document.getElementById("recentBody").innerHTML=rows;
 }
 function renderHistory(){
-  const rows = HISTORY.map(h=>`
+  const body=document.getElementById("historyBody"); if(!body) return;
+  const list=sortedViolations();
+  const countEl=document.getElementById("vhCount"); if(countEl) countEl.textContent=list.length;
+  if(!list.length){ body.innerHTML=emptyRow(7,curLang==="ar"?"لا توجد سجلات":"No records yet"); return; }
+  body.innerHTML=list.map(h=>`
     <tr>
       <td style="font-weight:600;color:var(--g800)">${h.emp}</td>
       <td>${h.cat}</td>
@@ -844,138 +956,246 @@ function renderHistory(){
       <td>${h.by}</td>
       <td style="color:var(--g400)">${h.date}</td>
     </tr>`).join("");
-  document.getElementById("historyBody").innerHTML=rows;
-  document.getElementById("vhCount").textContent=HISTORY.length;
 }
 function renderEmployees(){
+  const body=document.getElementById("empBody"); if(!body) return;
   const q=(document.getElementById("empSearch")?.value||"").toLowerCase().trim();
-  const list = q ? EMPLOYEES.filter(e=>e.name.toLowerCase().includes(q)||e.dept.toLowerCase().includes(q)) : EMPLOYEES;
-  document.getElementById("empCount").textContent=EMPLOYEES.length;
-  const rows=list.map(e=>`
+  const countEl=document.getElementById("empCount"); if(countEl) countEl.textContent=state.employees.length;
+  const deptsEl=document.getElementById("empDepts"); if(deptsEl) deptsEl.textContent=departmentCount();
+  const list = q ? state.employees.filter(e=>e.name.toLowerCase().includes(q)||(e.dept||"").toLowerCase().includes(q)) : state.employees;
+  if(!state.employees.length){ body.innerHTML=emptyRow(5,curLang==="ar"?"لا يوجد موظفون — أضف أول موظف":"No employees yet — add your first one"); return; }
+  if(!list.length){ body.innerHTML=emptyRow(5,curLang==="ar"?"لا توجد نتائج":"No results"); return; }
+  body.innerHTML=list.map((e,i)=>{
+    const realIdx=state.employees.indexOf(e);
+    const vc=employeeCount(e.name);
+    const st=employeeStatus(e.name);
+    const stLabel = st==="ok" ? (curLang==="ar"?"نشط":"Active") : (curLang==="ar"?"مُجمَّد":"Frozen");
+    return `
     <tr>
       <td>
         <div class="emp-cell">
-          <div class="avatar">${e.name[0]}</div>
-          <div><div class="emp-name">${e.name}</div><div class="emp-mail">${e.email}</div></div>
+          <div class="avatar">${(e.name[0]||"?").toUpperCase()}</div>
+          <div><div class="emp-name">${e.name}</div><div class="emp-mail">${e.email||""}</div></div>
         </div>
       </td>
-      <td><span class="dept-tag">${e.dept}</span></td>
-      <td><span style="font-weight:800;font-size:16px;color:${violationColor(e.violations)}">${e.violations}</span></td>
-      <td><span class="sbadge ${e.status}"><span class="sd"></span>${e.status==="ok"?(curLang==="ar"?"نشط":"Active"):(curLang==="ar"?"مُجمَّد":"Frozen")}</span></td>
+      <td>${e.dept?`<span class="dept-tag">${e.dept}</span>`:""}</td>
+      <td><span style="font-weight:800;font-size:16px;color:${violationColor(vc)}">${vc}</span></td>
+      <td><span class="sbadge ${st}"><span class="sd"></span>${stLabel}</span></td>
       <td>
         <div class="act-row">
-          <button class="act-btn" title="View"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg></button>
-          <button class="act-btn" title="Edit"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg></button>
-          <button class="act-btn danger" title="Delete"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/></svg></button>
+          <button class="act-btn" title="View" onclick="viewEmployee(${realIdx})"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg></button>
+          <button class="act-btn" title="Edit" onclick="openEmployeeModal(${realIdx})"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg></button>
+          <button class="act-btn danger" title="Delete" onclick="deleteEmployee(${realIdx})"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/></svg></button>
         </div>
       </td>
-    </tr>`).join("");
-  document.getElementById("empBody").innerHTML=rows;
+    </tr>`;
+  }).join("");
 }
 function renderPenaltyBars(){
-  const el=document.getElementById("penaltyBars");
-  const max=Math.max(...PENALTY_DIST.map(p=>p.n));
-  el.innerHTML=PENALTY_DIST.map(p=>`
+  const el=document.getElementById("penaltyBars"); if(!el) return;
+  const dist=penaltyDistribution();
+  const max=Math.max(1,...dist.map(p=>p.n));
+  el.innerHTML=dist.map(p=>`
     <div class="pb-bar">
       ${pbBadge(p.k)}
       <div class="pb-bar-track"><div class="pb-bar-fill" style="width:${(p.n/max)*100}%;background:${p.c}"></div></div>
       <div class="pb-bar-n">${p.n}</div>
     </div>`).join("");
 }
+function renderKpis(){
+  setText("kpiTotal", state.violations.length);
+  setText("kpiEmployees", state.employees.length);
+  setText("kpiDeduction", formatNum(totalDeductionDays()));
+  setText("kpiFreezes", activeFreezeCount());
+  setText("rkpiTotal", state.violations.length);
+  setText("rkpiEmployees", state.employees.length);
+  setText("rkpiDeduction", formatNum(totalDeductionDays()));
+  setText("rkpiFreezes", activeFreezeCount());
+  const dtxt = curLang==="ar" ? `في ${departmentCount()} أقسام` : `across ${departmentCount()} departments`;
+  const subEl = document.getElementById("kpiEmployeesSub"); if(subEl) subEl.textContent=dtxt;
+}
+function setText(id,v){ const el=document.getElementById(id); if(el) el.textContent=v; }
+function formatNum(n){ return Number.isInteger(n) ? n.toString() : n.toFixed(1).replace(/\.0$/,""); }
+
 function syncEsc(){
-  const el=document.getElementById("detCat"); if(!el) return;
-  el.textContent=document.getElementById("vCat").value;
+  const catEl=document.getElementById("vCat"); if(!catEl) return;
+  const cat=catEl.value;
+  const det=document.getElementById("detCat"); if(det) det.textContent=cat;
+  const incSel=document.getElementById("vInc");
+  if(incSel){
+    const list=CATEGORY_INCIDENTS[cat]||[];
+    incSel.innerHTML=list.map(i=>`<option>${i}</option>`).join("");
+  }
+}
+function populateEmployeeDropdown(){
+  const sel=document.getElementById("vEmp"); if(!sel) return;
+  if(!state.employees.length){
+    sel.innerHTML=`<option value="">${curLang==="ar"?"لا يوجد موظفون — أضف موظف أولاً":"No employees — add one first"}</option>`;
+    sel.disabled=true;
+  } else {
+    sel.innerHTML=state.employees.map(e=>`<option value="${e.name}">${e.name}</option>`).join("");
+    sel.disabled=false;
+  }
 }
 
 // ─────── CHARTS ───────
 let charts={};
 function buildCharts(){
-  // Kill existing to allow re-init after lang toggle
   Object.values(charts).forEach(c=>c&&c.destroy&&c.destroy());
   charts={};
 
-  // Trend (Dashboard)
+  const trend=trendLast6Months();
   if(document.getElementById("trendChart")){
     const ctx=document.getElementById("trendChart").getContext("2d");
     const grad=ctx.createLinearGradient(0,0,0,240);
-    grad.addColorStop(0,"rgba(47,184,158,.28)");
-    grad.addColorStop(1,"rgba(47,184,158,0)");
-    charts.trend=new Chart(ctx,{
-      type:"line",
-      data:{labels:TREND.labels,datasets:[{
-        data:TREND.data, borderColor:"#2FB89E", backgroundColor:grad,
-        tension:.4, fill:true, pointBackgroundColor:"#2FB89E",
-        pointBorderColor:"#fff", pointBorderWidth:2, pointRadius:5, borderWidth:2.5
-      }]},
-      options:{responsive:true,maintainAspectRatio:false,
-        plugins:{legend:{display:false}},
-        scales:{
-          y:{beginAtZero:true,grid:{color:"#ECEEF2"},ticks:{color:"#8896A5",font:{size:11}}},
-          x:{grid:{display:false},ticks:{color:"#8896A5",font:{size:11}}}
-        }
-      }
-    });
+    grad.addColorStop(0,"rgba(47,184,158,.28)"); grad.addColorStop(1,"rgba(47,184,158,0)");
+    charts.trend=new Chart(ctx,{type:"line",
+      data:{labels:trend.labels,datasets:[{data:trend.data,borderColor:"#2FB89E",backgroundColor:grad,tension:.4,fill:true,pointBackgroundColor:"#2FB89E",pointBorderColor:"#fff",pointBorderWidth:2,pointRadius:5,borderWidth:2.5}]},
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+        scales:{y:{beginAtZero:true,grid:{color:"#ECEEF2"},ticks:{color:"#8896A5",font:{size:11},precision:0}},x:{grid:{display:false},ticks:{color:"#8896A5",font:{size:11}}}}}});
   }
 
-  // Donut (Dashboard)
+  const catDist=categoryDistribution();
   if(document.getElementById("donutChart")){
-    charts.donut=new Chart(document.getElementById("donutChart"),{
-      type:"doughnut",
-      data:{
-        labels:["Attendance","Personal","Abusing","Policy"],
-        datasets:[{data:[12,6,4,6], backgroundColor:["#2FB89E","#E8825C","#C96A45","#2563EB"], borderWidth:0, spacing:2}]
-      },
+    if(catDist.labels.length===0){
+      catDist.labels=[curLang==="ar"?"لا توجد بيانات":"No data"]; catDist.data=[1];
+    }
+    const palette=["#2FB89E","#E8825C","#2563EB","#7C3AED","#C96A45","#D97706"];
+    charts.donut=new Chart(document.getElementById("donutChart"),{type:"doughnut",
+      data:{labels:catDist.labels,datasets:[{data:catDist.data,backgroundColor:state.violations.length?palette.slice(0,catDist.labels.length):["#ECEEF2"],borderWidth:0,spacing:2}]},
       options:{responsive:true,maintainAspectRatio:false,cutout:"68%",
-        plugins:{legend:{position:"bottom",labels:{color:"#5C6B7A",font:{size:11.5,weight:"500"},boxWidth:8,boxHeight:8,usePointStyle:true,pointStyle:"circle",padding:16}}}
-      }
-    });
+        plugins:{legend:{position:"bottom",labels:{color:"#5C6B7A",font:{size:11.5,weight:"500"},boxWidth:8,boxHeight:8,usePointStyle:true,pointStyle:"circle",padding:16}}}}});
   }
 
-  // Penalty distribution bar (Reports)
+  const dist=penaltyDistribution();
   if(document.getElementById("penChart")){
-    charts.pen=new Chart(document.getElementById("penChart"),{
-      type:"bar",
-      data:{
-        labels:["Yellow","Orange","Red","Black","Invest."],
-        datasets:[{data:PENALTY_DIST.map(p=>p.n), backgroundColor:PENALTY_DIST.map(p=>p.c), borderRadius:6, barThickness:56}]
-      },
-      options:{responsive:true,maintainAspectRatio:false,
-        plugins:{legend:{display:false}},
-        scales:{
-          y:{beginAtZero:true,grid:{color:"#ECEEF2"},ticks:{color:"#8896A5",stepSize:1,font:{size:11}}},
-          x:{grid:{display:false},ticks:{color:"#5C6B7A",font:{size:12,weight:"600"}}}
-        }
-      }
-    });
+    charts.pen=new Chart(document.getElementById("penChart"),{type:"bar",
+      data:{labels:["Yellow","Orange","Red","Black","Invest."],
+        datasets:[{data:dist.map(p=>p.n),backgroundColor:dist.map(p=>p.c),borderRadius:6,barThickness:56}]},
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+        scales:{y:{beginAtZero:true,grid:{color:"#ECEEF2"},ticks:{color:"#8896A5",stepSize:1,font:{size:11},precision:0}},x:{grid:{display:false},ticks:{color:"#5C6B7A",font:{size:12,weight:"600"}}}}}});
   }
 
-  // Top incidents horizontal (Reports)
+  const inc=topIncidents();
   if(document.getElementById("incChart")){
-    charts.inc=new Chart(document.getElementById("incChart"),{
-      type:"bar",
-      data:{
-        labels:TOP_INCIDENTS.map(i=>i.k),
-        datasets:[{data:TOP_INCIDENTS.map(i=>i.n), backgroundColor:"#2FB89E", borderRadius:6, barThickness:20}]
-      },
-      options:{indexAxis:"y",responsive:true,maintainAspectRatio:false,
-        plugins:{legend:{display:false}},
-        scales:{
-          x:{beginAtZero:true,grid:{color:"#ECEEF2"},ticks:{color:"#8896A5",stepSize:1,font:{size:11}}},
-          y:{grid:{display:false},ticks:{color:"#5C6B7A",font:{size:12,weight:"600"}}}
-        }
-      }
-    });
+    charts.inc=new Chart(document.getElementById("incChart"),{type:"bar",
+      data:{labels:inc.length?inc.map(i=>i.k):[curLang==="ar"?"لا توجد بيانات":"No data"],
+        datasets:[{data:inc.length?inc.map(i=>i.n):[0],backgroundColor:"#2FB89E",borderRadius:6,barThickness:20}]},
+      options:{indexAxis:"y",responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+        scales:{x:{beginAtZero:true,grid:{color:"#ECEEF2"},ticks:{color:"#8896A5",stepSize:1,font:{size:11},precision:0}},y:{grid:{display:false},ticks:{color:"#5C6B7A",font:{size:12,weight:"600"}}}}}});
   }
 }
 
-// ─────── INIT ───────
-document.addEventListener("DOMContentLoaded",()=>{
+// ─────── FULL REFRESH ───────
+function refreshAll(){
+  renderKpis();
   renderRecent();
   renderHistory();
   renderEmployees();
   renderPenaltyBars();
+  populateEmployeeDropdown();
   buildCharts();
+}
+
+// ─────── LOG VIOLATION SUBMIT ───────
+function submitViolation(ev){
+  if(ev) ev.preventDefault();
+  const cat=document.getElementById("vCat").value;
+  const inc=document.getElementById("vInc").value;
+  const emp=document.getElementById("vEmp").value;
+  const rep=document.getElementById("vRep").value.trim();
+  const comments=document.getElementById("vComments").value.trim();
+  const override=parseFloat(document.getElementById("vOverride").value);
+  const force=document.getElementById("vForce").checked;
+  const errBox=document.getElementById("vErr");
+
+  if(!emp){ errBox.textContent=curLang==="ar"?"اختر موظفاً أولاً (أضف موظف من صفحة الموظفين)":"Select an employee first (add one in Employees)"; errBox.style.display="block"; return; }
+  if(!rep){ errBox.textContent=curLang==="ar"?"اسم ممثل الموارد البشرية مطلوب":"HR Representative name is required"; errBox.style.display="block"; return; }
+  errBox.style.display="none";
+
+  const penalty = nextPenaltyFor(emp, force);
+  const deduction = (override!=null && !isNaN(override) && override!==-1) ? override : DEFAULT_DEDUCTION[penalty];
+
+  state.violations.push({emp, cat, inc, p:penalty, d:String(deduction), by:rep||"Amin", date:today(), comments});
+  saveState(); refreshAll();
+
+  // reset form
+  document.getElementById("vComments").value="";
+  document.getElementById("vOverride").value="-1";
+  document.getElementById("vForce").checked=false;
+
+  toast(curLang==="ar"?`تم تسجيل المخالفة (${penalty})`:`Violation recorded (${penalty})`);
+  go("dashboard");
+}
+
+// ─────── EMPLOYEE CRUD ───────
+let editingIndex=-1;
+function openEmployeeModal(idx){
+  editingIndex = (typeof idx==="number") ? idx : -1;
+  const e = editingIndex>=0 ? state.employees[editingIndex] : {name:"",email:"",dept:""};
+  document.getElementById("emName").value=e.name;
+  document.getElementById("emEmail").value=e.email||"";
+  document.getElementById("emDept").value=e.dept||"Operations";
+  document.getElementById("emTitle").textContent = editingIndex>=0 ? (curLang==="ar"?"تعديل موظف":"Edit Employee") : (curLang==="ar"?"إضافة موظف":"Add Employee");
+  document.getElementById("emErr").style.display="none";
+  document.getElementById("empModal").classList.add("show");
+  setTimeout(()=>document.getElementById("emName").focus(), 30);
+}
+function closeEmployeeModal(){ document.getElementById("empModal").classList.remove("show"); }
+function saveEmployee(ev){
+  if(ev) ev.preventDefault();
+  const name=document.getElementById("emName").value.trim();
+  const email=document.getElementById("emEmail").value.trim();
+  const dept=document.getElementById("emDept").value;
+  const err=document.getElementById("emErr");
+  if(!name){ err.textContent=curLang==="ar"?"الاسم مطلوب":"Name is required"; err.style.display="block"; return; }
+  const dup=state.employees.findIndex((e,i)=>i!==editingIndex && e.name.toLowerCase()===name.toLowerCase());
+  if(dup!==-1){ err.textContent=curLang==="ar"?"يوجد موظف بنفس الاسم":"An employee with this name already exists"; err.style.display="block"; return; }
+  if(editingIndex>=0){
+    const old=state.employees[editingIndex];
+    if(old.name!==name){ state.violations.forEach(v=>{ if(v.emp===old.name) v.emp=name; }); }
+    state.employees[editingIndex]={name,email,dept};
+  } else {
+    state.employees.push({name,email,dept});
+  }
+  saveState(); refreshAll(); closeEmployeeModal();
+  toast(curLang==="ar"?"تم الحفظ":"Saved");
+}
+function deleteEmployee(idx){
+  const e=state.employees[idx]; if(!e) return;
+  const msg = curLang==="ar" ? `هل تريد حذف ${e.name}؟ سيتم حذف جميع مخالفاته.` : `Delete ${e.name}? All their violations will also be removed.`;
+  if(!confirm(msg)) return;
+  state.violations = state.violations.filter(v=>v.emp!==e.name);
+  state.employees.splice(idx,1);
+  saveState(); refreshAll();
+  toast(curLang==="ar"?"تم الحذف":"Deleted");
+}
+function viewEmployee(idx){
+  const e=state.employees[idx]; if(!e) return;
+  const list=sortedViolations().filter(v=>v.emp===e.name);
+  const body=document.getElementById("viewBody");
+  document.getElementById("viewTitle").textContent=e.name;
+  document.getElementById("viewSub").textContent=`${e.dept||""}${e.email?" · "+e.email:""}`;
+  if(!list.length){ body.innerHTML=`<div class="empty" style="padding:28px 0"><div style="font-size:13px">${curLang==="ar"?"لا توجد مخالفات لهذا الموظف":"No violations for this employee"}</div></div>`; }
+  else body.innerHTML=`<table style="width:100%"><thead><tr><th>${curLang==="ar"?"التاريخ":"Date"}</th><th>${curLang==="ar"?"الفئة":"Category"}</th><th>${curLang==="ar"?"الحدث":"Incident"}</th><th>${curLang==="ar"?"العقوبة":"Penalty"}</th><th>${curLang==="ar"?"الخصم":"Ded."}</th></tr></thead><tbody>${list.map(v=>`<tr><td style="color:var(--g400)">${v.date}</td><td>${v.cat}</td><td>${v.inc}</td><td>${pbBadge(v.p)}</td><td style="font-weight:700;color:var(--g800)">${v.d}</td></tr>`).join("")}</tbody></table>`;
+  document.getElementById("viewModal").classList.add("show");
+}
+function closeViewModal(){ document.getElementById("viewModal").classList.remove("show"); }
+
+// ─────── TOAST ───────
+function toast(msg){
+  const t=document.getElementById("toast"); if(!t) return;
+  t.textContent=msg; t.classList.add("show");
+  clearTimeout(toast._tm); toast._tm=setTimeout(()=>t.classList.remove("show"), 2200);
+}
+
+// ─────── INIT ───────
+document.addEventListener("DOMContentLoaded",()=>{
+  loadState();
+  syncEsc();
+  refreshAll();
   updateTopbarTitle("dashboard");
+  document.getElementById("viewDate") && (document.getElementById("viewDate").textContent=today());
 });
 </script>
 </body>
