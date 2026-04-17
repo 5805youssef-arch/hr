@@ -2,11 +2,12 @@ import io
 from datetime import datetime, timedelta
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from openpyxl import Workbook
 
 from ..db import db
+from ..email import send_violation_emails
 from ..penalties import MATRIX_DATA, PENALTY_MAP
 from ..schemas import Violation, ViolationIn
 
@@ -66,7 +67,7 @@ def list_violations(
 
 
 @router.post("", response_model=Violation, status_code=201)
-def create_violation(payload: ViolationIn):
+def create_violation(payload: ViolationIn, bg: BackgroundTasks):
     if payload.category not in MATRIX_DATA or payload.incident not in MATRIX_DATA[payload.category]:
         raise HTTPException(400, "Unknown category or incident")
 
@@ -102,7 +103,29 @@ def create_violation(payload: ViolationIn):
                 now,
             ),
         )
-        return dict(cur.fetchone())
+        row = dict(cur.fetchone())
+
+        emp = conn.execute(
+            "SELECT email, manager_email FROM employees WHERE name = ?",
+            (payload.employee_name,),
+        ).fetchone()
+
+    if emp:
+        bg.add_task(
+            send_violation_emails,
+            emp_email=emp["email"],
+            manager_email=emp["manager_email"],
+            emp_name=payload.employee_name,
+            category=payload.category,
+            incident=payload.incident,
+            penalty_color=color,
+            penalty_label=label,
+            applied_days=applied,
+            comment=payload.comment,
+            proof_b64=payload.proof_image,
+        )
+
+    return row
 
 
 @router.delete("/{vid}", status_code=204)
