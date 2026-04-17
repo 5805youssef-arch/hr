@@ -174,8 +174,14 @@ body.rtl #sidebar.col ~ #main{margin-left:0;margin-right:68px}
 .pb-bar-fill{height:100%;border-radius:var(--rF)}
 .pb-bar-n{font-weight:700;color:var(--g800);min-width:18px;text-align:right}
 
-.esc-row{display:flex;align-items:center;gap:12px;padding:8px 0}
+.esc-row{display:flex;align-items:center;gap:12px;padding:8px 10px;border-radius:var(--r2);transition:background .15s ease,opacity .15s ease}
+.esc-row.dim{opacity:.38}
+.esc-row.active{background:#fff;box-shadow:var(--sh1);opacity:1}
+.esc-row.active .esc-num{background:var(--pri);color:#fff}
 .esc-num{width:22px;height:22px;border-radius:50%;background:var(--g100);color:var(--g500);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:11px;flex-shrink:0}
+.esc-pred{margin-bottom:12px;padding:10px 12px;border-radius:var(--r2);background:#fff;border:1px dashed rgba(37,99,235,.25);font-size:12.5px;color:var(--g700);display:flex;align-items:center;justify-content:space-between;gap:10px}
+.esc-pred .epk{color:var(--g500);font-weight:500}
+.esc-pred .epv{font-weight:700;color:var(--g800)}
 
 .detail-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--g100);font-size:13px}
 .detail-row:last-child{border-bottom:none}
@@ -448,7 +454,7 @@ body.rtl .search-wrap .finp{padding-left:14px;padding-right:40px}
         <div class="g2" style="gap:16px;margin-bottom:16px">
           <div class="fg">
             <label class="flbl"><span data-i18n="employee_req">Employee</span> *</label>
-            <select class="fsel" id="vEmp"></select>
+            <select class="fsel" id="vEmp" onchange="renderEscPath()"></select>
           </div>
           <div class="fg">
             <label class="flbl"><span data-i18n="hr_rep">HR Representative</span> *</label>
@@ -474,7 +480,7 @@ body.rtl .search-wrap .finp{padding-left:14px;padding-right:40px}
         </div>
 
         <label class="force-box" style="margin-bottom:12px">
-          <input id="vForce" type="checkbox"/>
+          <input id="vForce" type="checkbox" onchange="renderEscPath()"/>
           <span data-i18n="force_investigation">Force Investigation</span>
         </label>
 
@@ -493,12 +499,18 @@ body.rtl .search-wrap .finp{padding-left:14px;padding-right:40px}
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--info)" stroke-width="2"><path d="M12 2l8 4v6c0 5-3.5 9-8 10-4.5-1-8-5-8-10V6l8-4z"/></svg>
             <h3 style="font-size:14px;font-weight:700;color:var(--info)" data-i18n="escalation_path">Escalation Path</h3>
           </div>
-          <div class="esc-row"><div class="esc-num">1</div><span class="pb pb-yellow pb-lg"><span class="pb-dot"></span>Yellow</span></div>
-          <div class="esc-row"><div class="esc-num">2</div><span class="pb pb-yellow pb-lg"><span class="pb-dot"></span>Yellow</span></div>
-          <div class="esc-row"><div class="esc-num">3</div><span class="pb pb-orange pb-lg"><span class="pb-dot"></span>Orange</span></div>
-          <div class="esc-row"><div class="esc-num">4</div><span class="pb pb-red pb-lg"><span class="pb-dot"></span>Red</span></div>
-          <div class="esc-row"><div class="esc-num">5</div><span class="pb pb-black pb-lg"><span class="pb-dot"></span>Black</span></div>
-          <div class="esc-row"><div class="esc-num">6</div><span class="pb pb-investigation pb-lg"><span class="pb-dot"></span>Investigation</span></div>
+          <div class="esc-pred" id="escPred">
+            <span class="epk" data-i18n="predicted_next">Next penalty</span>
+            <span id="escPredVal" class="epv">—</span>
+          </div>
+          <div id="escList">
+            <div class="esc-row" data-step="1"><div class="esc-num">1</div><span class="pb pb-yellow pb-lg"><span class="pb-dot"></span>Yellow</span></div>
+            <div class="esc-row" data-step="2"><div class="esc-num">2</div><span class="pb pb-yellow pb-lg"><span class="pb-dot"></span>Yellow</span></div>
+            <div class="esc-row" data-step="3"><div class="esc-num">3</div><span class="pb pb-orange pb-lg"><span class="pb-dot"></span>Orange</span></div>
+            <div class="esc-row" data-step="4"><div class="esc-num">4</div><span class="pb pb-red pb-lg"><span class="pb-dot"></span>Red</span></div>
+            <div class="esc-row" data-step="5"><div class="esc-num">5</div><span class="pb pb-black pb-lg"><span class="pb-dot"></span>Black</span></div>
+            <div class="esc-row" data-step="6"><div class="esc-num">6</div><span class="pb pb-investigation pb-lg"><span class="pb-dot"></span>Investigation</span></div>
+          </div>
         </div>
 
         <div class="card">
@@ -841,7 +853,7 @@ const LANG = {
     employee_req:"الموظف", hr_rep:"ممثل الموارد البشرية",
     comments:"ملاحظات", attach_proof:"إرفاق إثبات", deduction_override:"تعديل الخصم",
     force_investigation:"تحويل مباشر للتحقيق", submit_notify:"إرسال وإشعار",
-    escalation_path:"مسار التصعيد", details:"التفاصيل",
+    escalation_path:"مسار التصعيد", details:"التفاصيل", predicted_next:"العقوبة التالية",
     reset_window:"فترة السماح", days:"يوم", max_steps:"الحد الأقصى", category:"الفئة",
     employees_title:"الموظفون", employees_across:"موظفين", employees_across_suffix:"في", departments_suffix:"أقسام",
     add_employee:"إضافة موظف", add_emp_sub:"أدخل بيانات الموظف", email:"البريد الإلكتروني", cancel:"إلغاء", save:"حفظ",
@@ -1026,6 +1038,7 @@ function syncEsc(){
     const list=CATEGORY_INCIDENTS[cat]||[];
     incSel.innerHTML=list.map(i=>`<option>${i}</option>`).join("");
   }
+  renderEscPath();
 }
 function populateEmployeeDropdown(){
   const sel=document.getElementById("vEmp"); if(!sel) return;
@@ -1035,6 +1048,46 @@ function populateEmployeeDropdown(){
   } else {
     sel.innerHTML=state.employees.map(e=>`<option value="${e.name}">${e.name}</option>`).join("");
     sel.disabled=false;
+  }
+  renderEscPath();
+}
+function penaltyLabel(p){
+  const en={yellow:"Yellow",orange:"Orange",red:"Red",black:"Black",investigation:"Investigation"};
+  const ar={yellow:"أصفر",orange:"برتقالي",red:"أحمر",black:"أسود",investigation:"تحقيق"};
+  return (curLang==="ar"?ar:en)[p]||p;
+}
+function renderEscPath(){
+  const list=document.getElementById("escList"); if(!list) return;
+  const empSel=document.getElementById("vEmp");
+  const forceEl=document.getElementById("vForce");
+  const predVal=document.getElementById("escPredVal");
+  const emp = empSel && !empSel.disabled ? empSel.value : "";
+  const force = forceEl ? forceEl.checked : false;
+
+  const rows=list.querySelectorAll(".esc-row");
+  rows.forEach(r=>r.classList.remove("active","dim"));
+
+  if(!emp){
+    if(predVal) predVal.textContent = curLang==="ar" ? "اختر موظفاً" : "Select employee";
+    return;
+  }
+
+  const recent = recentViolations(emp).length;
+  const stepIdx = force ? PENALTY_ORDER.length-1 : Math.min(recent, PENALTY_ORDER.length-1);
+  const penalty = PENALTY_ORDER[stepIdx];
+  const ded = DEFAULT_DEDUCTION[penalty] || 0;
+  const dayWord = curLang==="ar" ? (ded===1?"يوم":"أيام") : (ded===1?"day":"days");
+
+  rows.forEach((r,i)=>{
+    if(i===stepIdx) r.classList.add("active");
+    else r.classList.add("dim");
+  });
+
+  if(predVal){
+    const label = penaltyLabel(penalty);
+    const dedTxt = ded>0 ? ` · ${formatNum(ded)} ${dayWord}` : "";
+    predVal.textContent = `#${stepIdx+1} ${label}${dedTxt}`;
+    predVal.style.color = PENALTY_COLORS[penalty] || "var(--g800)";
   }
 }
 
