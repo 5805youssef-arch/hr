@@ -1,35 +1,25 @@
+version: '3.8'
+
 services:
   backend:
-    build: ./backend
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: hr-backend
     ports:
       - "8000:8000"
+    # This ensures your container can read your email credentials!
     env_file:
-      - .env
-    volumes:
-      - ./backend/app:/app/app
-      - ./backend/alembic:/app/alembic
-    depends_on:
-      - postgres
-
-  postgres:
-    image: postgres:16-alpine
-    environment:
-      POSTGRES_USER: hruser
-      POSTGRES_PASSWORD: hrpass123
-      POSTGRES_DB: hr_system
-    ports:
-      - "5433:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - ./backend/.env
+    restart: unless-stopped
 
   frontend:
-    image: nginx:alpine
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: hr-frontend
     ports:
-      - "8080:80"
-    volumes:
-      - ./frontend:/usr/share/nginx/html
+      - "8081:80"
     depends_on:
       - backend
-
-volumes:
-  postgres_data:
+    restart: unless-stopped
